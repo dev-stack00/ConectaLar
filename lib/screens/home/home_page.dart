@@ -1,0 +1,993 @@
+import 'package:flutter/material.dart';
+
+import '../../app/routes.dart';
+import '../../app/theme.dart';
+import '../../models/categoria.dart';
+import '../../models/home_content.dart';
+import '../../models/profissional.dart';
+import '../../widgets/bottom_navigation.dart';
+import 'home_mock_data.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, this.loadContent});
+
+  final Future<HomeContent> Function()? loadContent;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late Future<HomeContent> _contentFuture;
+
+  static const _navigationRoutes = [
+    AppRoutes.home,
+    AppRoutes.busca,
+    AppRoutes.favoritos,
+    AppRoutes.meusServicos,
+    AppRoutes.perfil,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
+
+  void _loadContent() {
+    _contentFuture =
+        widget.loadContent?.call() ?? Future.value(HomeMockData.content);
+  }
+
+  void _retry() {
+    setState(_loadContent);
+  }
+
+  void _openRoute(String route, {Object? arguments}) {
+    Navigator.pushNamed(context, route, arguments: arguments);
+  }
+
+  void _onDestinationSelected(int index) {
+    if (index == 0 || index >= _navigationRoutes.length) return;
+    _openRoute(_navigationRoutes[index]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.fundo,
+      body: SafeArea(
+        bottom: false,
+        child: FutureBuilder<HomeContent>(
+          future: _contentFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  semanticsLabel: 'Carregando conteúdo da página inicial',
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return _HomeErrorState(onRetry: _retry);
+            }
+
+            return _HomeContentView(
+              content: snapshot.data ?? const HomeContent(),
+              onSearchTap: () => _openRoute(AppRoutes.busca),
+              onCategoryTap: (category) =>
+                  _openRoute(AppRoutes.busca, arguments: category),
+              onProfessionalTap: (professional) => _openRoute(
+                AppRoutes.perfilProfissional,
+                arguments: professional,
+              ),
+            );
+          },
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationCustom(
+        currentIndex: 0,
+        onDestinationSelected: _onDestinationSelected,
+      ),
+    );
+  }
+}
+
+class _HomeContentView extends StatelessWidget {
+  const _HomeContentView({
+    required this.content,
+    required this.onSearchTap,
+    required this.onCategoryTap,
+    required this.onProfessionalTap,
+  });
+
+  final HomeContent content;
+  final VoidCallback onSearchTap;
+  final ValueChanged<Categoria> onCategoryTap;
+  final ValueChanged<Profissional> onProfessionalTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    return SizedBox(
+      width: screenWidth,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _HomeHero(onSearchTap: onSearchTap),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SectionHeading(
+                        title: 'Categorias',
+                        suffix: 'de serviços',
+                        action: 'Ver todas',
+                        onActionTap: onSearchTap,
+                      ),
+                      const SizedBox(height: 16),
+                      if (content.categories.isEmpty)
+                        const _EmptySectionMessage(
+                          message: 'Nenhuma categoria disponível.',
+                        )
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          primary: false,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: content.categories.length,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 10,
+                                mainAxisExtent: 84,
+                              ),
+                          itemBuilder: (context, index) {
+                            final category = content.categories[index];
+                            final style = _categoryStyle(category.nome, index);
+                            return _CategoryTile(
+                              category: category,
+                              icon: style.icon,
+                              background: style.background,
+                              color: style.foreground,
+                              onTap: () => onCategoryTap(category),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _SectionHeading(
+                  title: 'Profissionais em destaque',
+                  action: 'Ver todos',
+                  onActionTap: onSearchTap,
+                ),
+                const SizedBox(height: 14),
+                if (content.featuredProfessionals.isEmpty)
+                  const _EmptySectionMessage(
+                    message: 'Nenhum profissional disponível no momento.',
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardWidth = (constraints.maxWidth * 0.72).clamp(
+                        230.0,
+                        270.0,
+                      );
+                      return SizedBox(
+                        height: 276,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: content.featuredProfessionals.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final professional =
+                                content.featuredProfessionals[index];
+                            return SizedBox(
+                              width: cardWidth,
+                              child: _FeaturedProfessionalCard(
+                                professional: professional,
+                                onTap: () => onProfessionalTap(professional),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  _CategoryStyle _categoryStyle(String name, int index) {
+    final normalized = name.toLowerCase();
+    if (normalized.contains('elét') || normalized.contains('elet')) {
+      return const _CategoryStyle(
+        Icons.bolt_rounded,
+        Color(0xFFEAF6E2),
+        Color(0xFF69BC36),
+      );
+    }
+    if (normalized.contains('hidrá') ||
+        normalized.contains('hidra') ||
+        normalized.contains('encan')) {
+      return const _CategoryStyle(
+        Icons.water_drop_rounded,
+        Color(0xFFE5F2FC),
+        Color(0xFF1687C9),
+      );
+    }
+    if (normalized.contains('pint')) {
+      return const _CategoryStyle(
+        Icons.format_paint_rounded,
+        Color(0xFFFFF0E4),
+        Color(0xFFF28A18),
+      );
+    }
+    if (normalized.contains('limp')) {
+      return const _CategoryStyle(
+        Icons.cleaning_services_rounded,
+        Color(0xFFE3F5EF),
+        Color(0xFF13856A),
+      );
+    }
+    if (normalized.contains('manut') || normalized.contains('mont')) {
+      return const _CategoryStyle(
+        Icons.handyman_rounded,
+        Color(0xFFF1EAFE),
+        Color(0xFF8051C5),
+      );
+    }
+    if (normalized.contains('ar-cond')) {
+      return const _CategoryStyle(
+        Icons.ac_unit_rounded,
+        Color(0xFFFCE8F0),
+        Color(0xFFDA5485),
+      );
+    }
+    if (normalized.contains('reform')) {
+      return const _CategoryStyle(
+        Icons.wallpaper_rounded,
+        Color(0xFFFFF4D8),
+        Color(0xFFE4A000),
+      );
+    }
+    const styles = [
+      _CategoryStyle(
+        Icons.home_repair_service_rounded,
+        Color(0xFFE8F2FC),
+        Color(0xFF297CB5),
+      ),
+      _CategoryStyle(
+        Icons.grid_view_rounded,
+        Color(0xFFEAF6E2),
+        Color(0xFF69BC36),
+      ),
+    ];
+    return styles[index % styles.length];
+  }
+}
+
+class _CategoryStyle {
+  const _CategoryStyle(this.icon, this.background, this.foreground);
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+}
+
+class _HomeHero extends StatelessWidget {
+  const _HomeHero({required this.onSearchTap});
+
+  final VoidCallback onSearchTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        final imageWidth = compact ? 158.0 : 190.0;
+        return SizedBox(
+          height: 306,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFF3FBF6), Color(0xFFE6F5EC)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: -46,
+                bottom: 48,
+                child: Container(
+                  width: 230,
+                  height: 205,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFD8F0E1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: compact ? -18 : -10,
+                bottom: 40,
+                child: Image.asset(
+                  'assets/images/home/hero_house.png',
+                  width: imageWidth,
+                  height: 172,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                ),
+              ),
+              Positioned(
+                top: 12,
+                left: 20,
+                right: 20,
+                child: _BrandHeader(compact: compact),
+              ),
+              Positioned(
+                top: 86,
+                left: 20,
+                right: compact ? 106 : 126,
+                child: const _Greeting(),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 12,
+                child: _SearchButton(onTap: onSearchTap, compact: compact),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(
+            Icons.home_work_rounded,
+            color: AppColors.verde,
+            size: 29,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'Conecta'),
+                    TextSpan(
+                      text: 'Lar',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                style: TextStyle(
+                  color: AppColors.texto,
+                  fontSize: compact ? 19 : 21,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Serviços residenciais mais perto de você',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textoSuave,
+                  fontSize: compact ? 10 : 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () {},
+              tooltip: 'Notificações',
+              icon: const Icon(Icons.notifications_none_rounded, size: 27),
+              color: AppColors.texto,
+            ),
+            Positioned(
+              right: 3,
+              top: 2,
+              child: Container(
+                width: 17,
+                height: 17,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE84E55),
+                  shape: BoxShape.circle,
+                ),
+                child: const Text(
+                  '2',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Olá!',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          'Que serviço você precisa?',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: AppColors.texto,
+            fontSize: 24,
+            height: 1.05,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Encontre profissionais para cuidar do seu lar',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textoSuave,
+            fontSize: 13,
+            height: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchButton extends StatelessWidget {
+  const _SearchButton({required this.onTap, required this.compact});
+
+  final VoidCallback onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Buscar serviço ou profissional e informar o bairro',
+      child: Material(
+        color: Colors.white,
+        elevation: 4,
+        shadowColor: const Color(0x1A1E5E41),
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          key: const ValueKey('home-search'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: ExcludeSemantics(
+            child: SizedBox(
+              height: 66,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 15),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textoSuave,
+                      size: 26,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Digite o serviço ou categoria',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textoSuave,
+                          fontSize: compact ? 11 : 12,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 34,
+                      color: const Color(0xFFE4EAE6),
+                    ),
+                    SizedBox(width: compact ? 8 : 11),
+                    Icon(
+                      Icons.location_on_rounded,
+                      color: AppColors.verdeEscuro,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      compact ? 'Bairro' : 'Seu bairro',
+                      style: const TextStyle(
+                        color: AppColors.texto,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textoSuave,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.category,
+    required this.icon,
+    required this.background,
+    required this.color,
+    required this.onTap,
+  });
+
+  final Categoria category;
+  final IconData icon;
+  final Color background;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: category.nome,
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(21),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(21),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 29),
+                const SizedBox(height: 5),
+                Text(
+                  category.nome,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.texto,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturedProfessionalCard extends StatefulWidget {
+  const _FeaturedProfessionalCard({
+    required this.professional,
+    required this.onTap,
+  });
+
+  final Profissional professional;
+  final VoidCallback onTap;
+
+  @override
+  State<_FeaturedProfessionalCard> createState() =>
+      _FeaturedProfessionalCardState();
+}
+
+class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
+  bool _isFavorite = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final professional = widget.professional;
+    final price = professional.precoInicial;
+    final image = professional.fotoAsset;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 118,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (image != null)
+                    Image.asset(
+                      image,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    )
+                  else
+                    ColoredBox(
+                      color: AppColors.verdeClaro,
+                      child: Icon(
+                        Icons.person,
+                        color: AppColors.verde,
+                        size: 50,
+                      ),
+                    ),
+                  if (professional.verificado)
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified_rounded,
+                              color: Color(0xFF1A9A67),
+                              size: 15,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Verificado',
+                              style: TextStyle(
+                                color: AppColors.texto,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    right: 9,
+                    top: 8,
+                    child: Material(
+                      color: const Color(0x55000000),
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 36,
+                          height: 36,
+                        ),
+                        tooltip: _isFavorite
+                            ? 'Remover dos favoritos'
+                            : 'Adicionar aos favoritos',
+                        onPressed: () =>
+                            setState(() => _isFavorite = !_isFavorite),
+                        icon: Icon(
+                          _isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: Colors.white,
+                          size: 21,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: AppColors.verdeClaro,
+                          backgroundImage: image == null
+                              ? null
+                              : AssetImage(image),
+                          child: image == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 18,
+                                  color: AppColors.verde,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                professional.nome,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.texto,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: AppColors.estrela,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    professional.notaMedia == null
+                                        ? 'Novo profissional'
+                                        : '${professional.notaMedia!.toStringAsFixed(1).replaceAll('.', ',')} (${professional.quantidadeAvaliacoes ?? 0})',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textoSuave,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 15,
+                          color: AppColors.textoSuave,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            professional.bairro,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textoSuave,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Serviços: ${professional.servicos.isEmpty ? professional.descricao : professional.servicos.join(', ')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textoSuave,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      price == null
+                          ? 'Preço sob consulta'
+                          : 'A partir de R\$ ${price.toStringAsFixed(2).replaceAll('.', ',')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF15935F),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({
+    required this.title,
+    this.suffix,
+    this.action,
+    this.onActionTap,
+  });
+
+  final String title;
+  final String? suffix;
+  final String? action;
+  final VoidCallback? onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.texto,
+                  ),
+                ),
+              ),
+              if (suffix != null) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    suffix!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.texto,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (action != null)
+          TextButton.icon(
+            onPressed: onActionTap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.only(left: 8),
+              minimumSize: const Size(0, 36),
+              foregroundColor: const Color(0xFF15935F),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            iconAlignment: IconAlignment.end,
+            icon: const Icon(Icons.chevron_right_rounded, size: 20),
+            label: Text(
+              action!,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _EmptySectionMessage extends StatelessWidget {
+  const _EmptySectionMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+    );
+  }
+}
+
+class _HomeErrorState extends StatelessWidget {
+  const _HomeErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Não foi possível carregar a página inicial. Tente novamente.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

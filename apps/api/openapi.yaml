@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: ConectaLar API
+  version: 0.1.0
+  description: Contrato inicial da fundação técnica. Rotas de negócio serão adicionadas após validação dos requisitos e decisões P/Q.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Verifica se o processo HTTP está respondendo
+      tags:
+        - System
+      responses:
+        '200':
+          description: Processo HTTP disponível
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        default:
+          description: Erro HTTP com conteúdo interno omitido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - statusCode
+        - message
+      properties:
+        statusCode:
+          type: integer
+          minimum: 400
+          maximum: 599
+        message:
+          type: string
+          enum:
+            - Request could not be processed
+            - Internal server error
