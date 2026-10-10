@@ -32,7 +32,7 @@ The API currently has no external service, CORS, upload, payment, push notificat
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `denuncias`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `admin_auditoria`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `denuncias`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -55,6 +55,16 @@ Authentication routes:
 - `POST /auth/login`
 
 Passwords are stored as `scrypt` hashes. Responses never include `senha_hash`.
+
+Administrative user routes:
+
+- `GET /admin/usuarios` with `Authorization: Bearer <token>` for `administrador`
+- `GET /admin/usuarios?tipo=cliente&ativo=true&termo=maria` with `Authorization: Bearer <token>` for `administrador`
+- `GET /admin/usuarios/:id` with `Authorization: Bearer <token>` for `administrador`
+- `POST /admin/usuarios/administradores` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /admin/usuarios/:id/status` with `Authorization: Bearer <token>` for `administrador`
+
+Administrative user responses never include password hashes. Public registration still cannot create administrator accounts; administrator creation is restricted to authenticated administrators and stores the password with the same `scrypt` hashing. Status changes are soft activation/deactivation only, are audited in `admin_auditoria`, cannot deactivate the current administrator's own account, and cannot deactivate the last active administrator. Invite flow, MFA, detailed permissions, and account recovery remain pending under P02/P15.
 
 Client routes:
 

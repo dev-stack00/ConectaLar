@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
+import { AdminAuditoriaEntity } from './entities/admin-auditoria.entity.js';
 import { AvaliacaoEntity } from './entities/avaliacao.entity.js';
 import { CategoriaEntity } from './entities/categoria.entity.js';
 import { ClienteEnderecoEntity } from './entities/cliente-endereco.entity.js';
@@ -90,6 +91,7 @@ export function databaseRuntimeOptions(): DataSourceOptions {
       NotificacaoEntity,
       ProfissionalDocumentoVerificacaoEntity,
       DenunciaEntity,
+      AdminAuditoriaEntity,
     ],
   };
 }

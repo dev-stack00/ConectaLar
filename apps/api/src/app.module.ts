@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminUsuariosModule } from './admin-usuarios/admin-usuarios.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AvaliacoesModule } from './avaliacoes/avaliacoes.module.js';
 import { CategoriasModule } from './categorias/categorias.module.js';
@@ -31,6 +32,7 @@ const runtimeImports = isAuthRuntimeConfigured()
       NotificacoesModule,
       VerificacaoModule,
       DenunciasModule,
+      AdminUsuariosModule,
     ]
   : [];
 
