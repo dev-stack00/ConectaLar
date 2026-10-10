@@ -1,7 +1,11 @@
 import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
+import { AvaliacaoEntity } from './entities/avaliacao.entity.js';
+import { CategoriaEntity } from './entities/categoria.entity.js';
+import { MensagemAtendimentoEntity } from './entities/mensagem-atendimento.entity.js';
 import { ProfissionalPerfilEntity } from './entities/profissional-perfil.entity.js';
 import { ProfissionalServicoEntity } from './entities/profissional-servico.entity.js';
+import { SolicitacaoEntity } from './entities/solicitacao.entity.js';
 import { UsuarioEntity } from './entities/usuario.entity.js';
 
 function requiredDatabaseValue(name: string): string {
@@ -64,7 +68,15 @@ export function databaseRuntimeOptions(): DataSourceOptions {
     migrationsRun: false,
     migrationsTableName: 'typeorm_migrations',
     logging: false,
-    entities: [UsuarioEntity, ProfissionalPerfilEntity, ProfissionalServicoEntity],
+    entities: [
+      UsuarioEntity,
+      ProfissionalPerfilEntity,
+      ProfissionalServicoEntity,
+      CategoriaEntity,
+      SolicitacaoEntity,
+      MensagemAtendimentoEntity,
+      AvaliacaoEntity,
+    ],
   };
 }
 

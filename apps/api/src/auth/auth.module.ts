@@ -12,6 +12,6 @@ import { TokenService } from './token.service.js';
   imports: [TypeOrmModule.forFeature([UsuarioEntity])],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, TokenService, AuthGuard, RolesGuard],
-  exports: [AuthGuard, RolesGuard, TokenService],
+  exports: [TypeOrmModule, AuthGuard, RolesGuard, TokenService],
 })
 export class AuthModule {}

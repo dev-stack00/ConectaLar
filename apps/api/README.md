@@ -20,19 +20,19 @@ Use Node.js 22.13 or newer in the 22.x line, or 24.15 or newer. Install dependen
 
 The health check is `GET /health` and returns only `{ "status": "ok" }`. It does not report dependency, database, version, or environment details.
 
-The OpenAPI contract for the health and auth routes is in `openapi.yaml`. Auth routes are mounted only when MySQL and `AUTH_TOKEN_SECRET` are configured before process startup.
+The OpenAPI contract for the health, auth, categories, professional, and request routes is in `openapi.yaml`; the chat and review routes are documented below and still need to be added to the OpenAPI file. MySQL-backed routes are mounted only when MySQL and `AUTH_TOKEN_SECRET` are configured before process startup.
 
 ## Logging and errors
 
 Request bodies and headers are not logged. The global exception filter returns a generic response and emits only a structured event, HTTP status, and broad exception type; it omits exception messages, stacks, URLs, and request data. Add request logging only with an explicit redaction and retention policy.
 
-The API currently has no external service, CORS, upload, or service-flow modules. The app module imports TypeORM and auth only when runtime configuration is complete, so the health endpoint remains independent of MySQL.
+The API currently has no external service, CORS, upload, payment, push notification, or file modules. The app module imports TypeORM and the business modules only when runtime configuration is complete, so the health endpoint remains independent of MySQL.
 
 ## Database foundation
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The initial migration creates only the `usuarios` table needed for RF001/RF002 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `categorias`, `solicitacoes`, `mensagens_atendimento`, and `avaliacoes` tables needed for the current RF001/RF021 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -59,10 +59,48 @@ Passwords are stored as `scrypt` hashes. Responses never include `senha_hash`.
 Professional routes:
 
 - `GET /profissionais`
-- `GET /profissionais?termo=eletricista&bairro=jardim`
+- `GET /profissionais?termo=eletricista&bairro=jardim&categoriaId=1`
 - `GET /profissionais/:id`
 - `GET /profissionais/me` with `Authorization: Bearer <token>` for `profissional` or `empresa`
 - `PUT /profissionais/me` with `Authorization: Bearer <token>` for `profissional` or `empresa`
 - `PATCH /profissionais/:id/verificacao` with `Authorization: Bearer <token>` for `administrador`
 
 Professional public responses do not expose e-mail, phone, address, documents, or password hashes. The `verificado` seal can only be changed through the administrative route; professionals cannot approve their own seal.
+
+Category routes:
+
+- `GET /categorias`
+- `GET /categorias/admin` with `Authorization: Bearer <token>` for `administrador`
+- `POST /categorias` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /categorias/:id` with `Authorization: Bearer <token>` for `administrador`
+
+Inactive categories do not appear in public lists and cannot be used for new professional offers or new requests, but the category row remains available for historical references.
+
+Service request routes:
+
+- `POST /solicitacoes` with `Authorization: Bearer <token>` for `cliente`
+- `GET /solicitacoes/me` with `Authorization: Bearer <token>` for participants or `administrador`
+- `GET /solicitacoes/:id` with `Authorization: Bearer <token>` for participants or `administrador`
+- `PATCH /solicitacoes/:id/aceitar` with `Authorization: Bearer <token>` for the requested `profissional` or `empresa`
+- `PATCH /solicitacoes/:id/recusar` with `Authorization: Bearer <token>` for the requested `profissional` or `empresa`
+- `PATCH /solicitacoes/:id/cancelar` with `Authorization: Bearer <token>` for the requesting `cliente`
+- `PATCH /solicitacoes/:id/concluir` with `Authorization: Bearer <token>` for the requesting `cliente`
+
+New requests always start as `aguardando_resposta`; they become `aceita_agendada` only after the requested provider accepts them. Request responses expose only the attendance neighborhood, never the client's full address.
+
+Chat routes:
+
+- `GET /solicitacoes/:solicitacaoId/mensagens` with `Authorization: Bearer <token>` for participants or `administrador`
+- `POST /solicitacoes/:solicitacaoId/mensagens` with `Authorization: Bearer <token>` for the requesting `cliente` or requested `profissional`/`empresa`
+
+Messages are linked to a service request. New messages are allowed only while the request is `aguardando_resposta` or `aceita_agendada`; final states keep the history available to authorized participants without reopening the service.
+
+Review routes:
+
+- `GET /solicitacoes/:solicitacaoId/avaliacoes` with `Authorization: Bearer <token>` for participants or `administrador`
+- `POST /solicitacoes/:solicitacaoId/avaliacoes/profissional` with `Authorization: Bearer <token>` for the requesting `cliente`
+- `POST /solicitacoes/:solicitacaoId/avaliacoes/cliente` with `Authorization: Bearer <token>` for the requested `profissional` or `empresa`
+- `GET /avaliacoes/moderacao` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /avaliacoes/:id/moderacao` with `Authorization: Bearer <token>` for `administrador`
+
+Reviews can be created only after `conclusao_confirmada`. Each participant can review the opposite participant once per service request. New reviews start with moderation status `pendente`.

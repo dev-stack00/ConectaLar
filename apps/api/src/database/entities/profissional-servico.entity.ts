@@ -8,16 +8,25 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { CategoriaEntity } from './categoria.entity.js';
 import { ProfissionalPerfilEntity } from './profissional-perfil.entity.js';
 
 @Entity({ name: 'profissional_servicos' })
 @Index('idx_profissional_servicos_profissional', ['profissionalId'])
+@Index('idx_profissional_servicos_categoria', ['categoriaId'])
 export class ProfissionalServicoEntity {
   @PrimaryGeneratedColumn({ type: 'int', unsigned: true })
   id!: number;
 
   @Column({ name: 'profissional_id', type: 'int', unsigned: true })
   profissionalId!: number;
+
+  @Column({ name: 'categoria_id', type: 'int', unsigned: true, nullable: true })
+  categoriaId!: number | null;
+
+  @ManyToOne(() => CategoriaEntity, { nullable: true })
+  @JoinColumn({ name: 'categoria_id' })
+  categoria!: CategoriaEntity | null;
 
   @ManyToOne(() => ProfissionalPerfilEntity, (perfil) => perfil.servicos, {
     nullable: false,

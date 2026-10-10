@@ -1,0 +1,377 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { CategoriaEntity } from '../database/entities/categoria.entity.js';
+import { ProfissionalPerfilEntity } from '../database/entities/profissional-perfil.entity.js';
+import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
+import { UsuarioEntity } from '../database/entities/usuario.entity.js';
+import { SolicitacaoStatus } from '../domain/solicitacao-status.js';
+import { UsuarioTipo } from '../domain/usuario-tipo.js';
+
+interface CriarSolicitacaoInput {
+  readonly profissionalId: number;
+  readonly categoriaId: number | null;
+  readonly descricao: string;
+  readonly bairroAtendimento: string;
+  readonly dataServico: string;
+  readonly horarioServico: string;
+}
+
+@Injectable()
+export class SolicitacoesService {
+  constructor(
+    @InjectRepository(CategoriaEntity)
+    private readonly categorias: Repository<CategoriaEntity>,
+    @InjectRepository(ProfissionalPerfilEntity)
+    private readonly profissionais: Repository<ProfissionalPerfilEntity>,
+    @InjectRepository(SolicitacaoEntity)
+    private readonly solicitacoes: Repository<SolicitacaoEntity>,
+    @InjectRepository(UsuarioEntity)
+    private readonly usuarios: Repository<UsuarioEntity>,
+  ) {}
+
+  async criar(user: AuthenticatedUser, body: unknown) {
+    const input = parseCriarSolicitacao(body);
+    const cliente = await this.usuarios.findOne({
+      where: { id: user.id, tipo: UsuarioTipo.Cliente, ativo: true },
+    });
+    if (cliente === null) {
+      throw forbidden();
+    }
+
+    const profissional = await this.profissionais.findOne({
+      where: { id: input.profissionalId, ativo: true },
+      relations: { usuario: true },
+    });
+    if (
+      profissional === null ||
+      !profissional.usuario.ativo ||
+      ![UsuarioTipo.Profissional, UsuarioTipo.Empresa].includes(
+        profissional.usuario.tipo,
+      )
+    ) {
+      throw new NotFoundException({
+        code: 'PROFISSIONAL_NAO_ENCONTRADO',
+        message: 'Profissional nao encontrado.',
+      });
+    }
+
+    if (input.categoriaId !== null) {
+      const categoria = await this.categorias.findOne({
+        where: { id: input.categoriaId, ativo: true },
+      });
+      if (categoria === null) {
+        throw badRequest('CATEGORIA_INVALIDA');
+      }
+    }
+
+    const solicitacao = this.solicitacoes.create({
+      clienteId: cliente.id,
+      profissionalId: profissional.id,
+      categoriaId: input.categoriaId,
+      descricao: input.descricao,
+      bairroAtendimento: input.bairroAtendimento,
+      dataServico: input.dataServico,
+      horarioServico: input.horarioServico,
+      precoInicial: profissional.precoInicial,
+      status: SolicitacaoStatus.AguardandoResposta,
+    });
+
+    const saved = await this.solicitacoes.save(solicitacao);
+    return { solicitacao: solicitacaoResponse(await this.carregar(saved.id)) };
+  }
+
+  async minhas(user: AuthenticatedUser) {
+    const builder = this.solicitacoes
+      .createQueryBuilder('solicitacao')
+      .leftJoinAndSelect('solicitacao.cliente', 'cliente')
+      .leftJoinAndSelect('solicitacao.profissional', 'profissional')
+      .leftJoinAndSelect('profissional.usuario', 'profissionalUsuario')
+      .leftJoinAndSelect('solicitacao.categoria', 'categoria')
+      .orderBy('solicitacao.criadoEm', 'DESC');
+
+    if (user.tipo === UsuarioTipo.Cliente) {
+      builder.where('solicitacao.cliente_id = :userId', { userId: user.id });
+    } else if (
+      [UsuarioTipo.Profissional, UsuarioTipo.Empresa].includes(user.tipo)
+    ) {
+      builder.where('profissional.usuario_id = :userId', { userId: user.id });
+    } else if (user.tipo !== UsuarioTipo.Administrador) {
+      throw forbidden();
+    }
+
+    const solicitacoes = await builder.getMany();
+    return { solicitacoes: solicitacoes.map(solicitacaoResponse) };
+  }
+
+  async obter(user: AuthenticatedUser, id: number) {
+    const solicitacao = await this.carregar(id);
+    assertParticipante(user, solicitacao);
+    return { solicitacao: solicitacaoResponse(solicitacao) };
+  }
+
+  async aceitar(user: AuthenticatedUser, id: number) {
+    const solicitacao = await this.carregar(id);
+    assertProfissionalParticipante(user, solicitacao);
+    return this.transicionar(
+      solicitacao,
+      SolicitacaoStatus.AguardandoResposta,
+      SolicitacaoStatus.AceitaAgendada,
+    );
+  }
+
+  async recusar(user: AuthenticatedUser, id: number) {
+    const solicitacao = await this.carregar(id);
+    assertProfissionalParticipante(user, solicitacao);
+    return this.transicionar(
+      solicitacao,
+      SolicitacaoStatus.AguardandoResposta,
+      SolicitacaoStatus.Recusada,
+    );
+  }
+
+  async cancelar(user: AuthenticatedUser, id: number) {
+    const solicitacao = await this.carregar(id);
+    assertClienteParticipante(user, solicitacao);
+    if (
+      ![
+        SolicitacaoStatus.AguardandoResposta,
+        SolicitacaoStatus.AceitaAgendada,
+      ].includes(solicitacao.status)
+    ) {
+      throw badRequest('TRANSICAO_INVALIDA');
+    }
+
+    solicitacao.status = SolicitacaoStatus.Cancelada;
+    const saved = await this.solicitacoes.save(solicitacao);
+    return { solicitacao: solicitacaoResponse(await this.carregar(saved.id)) };
+  }
+
+  async concluir(user: AuthenticatedUser, id: number) {
+    const solicitacao = await this.carregar(id);
+    assertClienteParticipante(user, solicitacao);
+    return this.transicionar(
+      solicitacao,
+      SolicitacaoStatus.AceitaAgendada,
+      SolicitacaoStatus.ConclusaoConfirmada,
+    );
+  }
+
+  private async transicionar(
+    solicitacao: SolicitacaoEntity,
+    origem: SolicitacaoStatus,
+    destino: SolicitacaoStatus,
+  ) {
+    if (solicitacao.status !== origem) {
+      throw badRequest('TRANSICAO_INVALIDA');
+    }
+
+    solicitacao.status = destino;
+    const saved = await this.solicitacoes.save(solicitacao);
+    return { solicitacao: solicitacaoResponse(await this.carregar(saved.id)) };
+  }
+
+  private async carregar(id: number): Promise<SolicitacaoEntity> {
+    const solicitacao = await this.solicitacoes.findOne({
+      where: { id },
+      relations: {
+        cliente: true,
+        profissional: { usuario: true },
+        categoria: true,
+      },
+    });
+    if (solicitacao === null) {
+      throw new NotFoundException({
+        code: 'SOLICITACAO_NAO_ENCONTRADA',
+        message: 'Solicitacao nao encontrada.',
+      });
+    }
+
+    return solicitacao;
+  }
+}
+
+function solicitacaoResponse(solicitacao: SolicitacaoEntity) {
+  return {
+    id: solicitacao.id,
+    status: solicitacao.status,
+    descricao: solicitacao.descricao,
+    bairroAtendimento: solicitacao.bairroAtendimento,
+    dataServico: solicitacao.dataServico,
+    horarioServico: solicitacao.horarioServico,
+    precoInicial: numberOrNull(solicitacao.precoInicial),
+    cliente: {
+      id: solicitacao.cliente.id,
+      nome: solicitacao.cliente.nome,
+    },
+    profissional: {
+      id: solicitacao.profissional.id,
+      usuarioId: solicitacao.profissional.usuarioId,
+      nome: solicitacao.profissional.usuario.nome,
+      verificado: solicitacao.profissional.verificado,
+    },
+    categoria:
+      solicitacao.categoria === null
+        ? null
+        : {
+            id: solicitacao.categoria.id,
+            nome: solicitacao.categoria.nome,
+          },
+    criadoEm: solicitacao.criadoEm.toISOString(),
+    atualizadoEm: solicitacao.atualizadoEm.toISOString(),
+  };
+}
+
+function assertParticipante(
+  user: AuthenticatedUser,
+  solicitacao: SolicitacaoEntity,
+): void {
+  if (user.tipo === UsuarioTipo.Administrador) {
+    return;
+  }
+  if (user.tipo === UsuarioTipo.Cliente && solicitacao.clienteId === user.id) {
+    return;
+  }
+  if (
+    [UsuarioTipo.Profissional, UsuarioTipo.Empresa].includes(user.tipo) &&
+    solicitacao.profissional.usuarioId === user.id
+  ) {
+    return;
+  }
+
+  throw forbidden();
+}
+
+function assertProfissionalParticipante(
+  user: AuthenticatedUser,
+  solicitacao: SolicitacaoEntity,
+): void {
+  if (
+    [UsuarioTipo.Profissional, UsuarioTipo.Empresa].includes(user.tipo) &&
+    solicitacao.profissional.usuarioId === user.id
+  ) {
+    return;
+  }
+
+  throw forbidden();
+}
+
+function assertClienteParticipante(
+  user: AuthenticatedUser,
+  solicitacao: SolicitacaoEntity,
+): void {
+  if (user.tipo === UsuarioTipo.Cliente && solicitacao.clienteId === user.id) {
+    return;
+  }
+
+  throw forbidden();
+}
+
+function parseCriarSolicitacao(body: unknown): CriarSolicitacaoInput {
+  const value = objectBody(body);
+
+  return {
+    profissionalId: requiredId(value.profissionalId),
+    categoriaId: optionalId(value.categoriaId),
+    descricao: textField(value, 'descricao', 10, 600),
+    bairroAtendimento: textField(value, 'bairroAtendimento', 2, 120),
+    dataServico: dateField(value.dataServico),
+    horarioServico: timeField(value.horarioServico),
+  };
+}
+
+function objectBody(body: unknown): Record<string, unknown> {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw badRequest('CORPO_INVALIDO');
+  }
+
+  return body as Record<string, unknown>;
+}
+
+function textField(
+  value: Record<string, unknown>,
+  key: string,
+  min: number,
+  max: number,
+): string {
+  const field = value[key];
+  if (typeof field !== 'string') {
+    throw badRequest('CAMPO_INVALIDO');
+  }
+
+  const text = field.trim();
+  if (text.length < min || text.length > max) {
+    throw badRequest('CAMPO_INVALIDO');
+  }
+
+  return text;
+}
+
+function requiredId(value: unknown): number {
+  const id = optionalId(value);
+  if (id === null) {
+    throw badRequest('ID_INVALIDO');
+  }
+
+  return id;
+}
+
+function optionalId(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'string' && /^[1-9]\d{0,9}$/.test(value)) {
+    return Number(value);
+  }
+
+  throw badRequest('ID_INVALIDO');
+}
+
+function dateField(value: unknown): string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw badRequest('DATA_INVALIDA');
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw badRequest('DATA_INVALIDA');
+  }
+
+  return value;
+}
+
+function timeField(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+  ) {
+    throw badRequest('HORARIO_INVALIDO');
+  }
+
+  return value;
+}
+
+function numberOrNull(value: string | null): number | null {
+  return value === null ? null : Number(value);
+}
+
+function forbidden(): ForbiddenException {
+  return new ForbiddenException({
+    code: 'ACESSO_NEGADO',
+    message: 'Usuario sem permissao para este recurso.',
+  });
+}
+
+function badRequest(code: string): BadRequestException {
+  return new BadRequestException({
+    code,
+    message: 'Dados invalidos.',
+  });
+}

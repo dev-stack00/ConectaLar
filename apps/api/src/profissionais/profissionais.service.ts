@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { CategoriaEntity } from '../database/entities/categoria.entity.js';
 import { ProfissionalPerfilEntity } from '../database/entities/profissional-perfil.entity.js';
 import { ProfissionalServicoEntity } from '../database/entities/profissional-servico.entity.js';
 import { UsuarioEntity } from '../database/entities/usuario.entity.js';
@@ -13,6 +14,7 @@ import { UsuarioTipo } from '../domain/usuario-tipo.js';
 
 interface ProfissionalServicoInput {
   readonly nome: string;
+  readonly categoriaId?: number | null;
   readonly precoInicial?: number | null;
 }
 
@@ -23,9 +25,17 @@ interface UpsertPerfilInput {
   readonly servicos: readonly ProfissionalServicoInput[];
 }
 
+interface ProfissionaisFiltros {
+  readonly termo: string | null;
+  readonly bairro: string | null;
+  readonly categoriaId: number | null;
+}
+
 @Injectable()
 export class ProfissionaisService {
   constructor(
+    @InjectRepository(CategoriaEntity)
+    private readonly categorias: Repository<CategoriaEntity>,
     @InjectRepository(ProfissionalPerfilEntity)
     private readonly perfis: Repository<ProfissionalPerfilEntity>,
     @InjectRepository(ProfissionalServicoEntity)
@@ -37,6 +47,7 @@ export class ProfissionaisService {
   async listar(query: Record<string, unknown>) {
     const termo = optionalText(query.termo, 80);
     const bairro = optionalText(query.bairro, 80);
+    const categoriaId = optionalId(query.categoriaId);
 
     const builder = this.perfis
       .createQueryBuilder('perfil')
@@ -47,6 +58,7 @@ export class ProfissionaisService {
         'servico.ativo = :ativo',
         { ativo: true },
       )
+      .leftJoinAndSelect('servico.categoria', 'categoria')
       .where('perfil.ativo = :ativo', { ativo: true })
       .andWhere('usuario.ativo = :ativo', { ativo: true })
       .andWhere('usuario.tipo IN (:...tipos)', {
@@ -58,7 +70,9 @@ export class ProfissionaisService {
     const perfis = await builder.getMany();
     return {
       profissionais: perfis
-        .filter((perfil) => correspondeFiltros(perfil, { termo, bairro }))
+        .filter((perfil) =>
+          correspondeFiltros(perfil, { termo, bairro, categoriaId }),
+        )
         .map(perfilPublico),
     };
   }
@@ -66,7 +80,7 @@ export class ProfissionaisService {
   async obter(id: number) {
     const perfil = await this.perfis.findOne({
       where: { id, ativo: true },
-      relations: { usuario: true, servicos: true },
+      relations: { usuario: true, servicos: { categoria: true } },
     });
     if (
       perfil === null ||
@@ -87,7 +101,7 @@ export class ProfissionaisService {
   async meuPerfil(user: AuthenticatedUser) {
     const perfil = await this.perfis.findOne({
       where: { usuarioId: user.id },
-      relations: { usuario: true, servicos: true },
+      relations: { usuario: true, servicos: { categoria: true } },
     });
 
     return { profissional: perfil === null ? null : perfilPublico(perfil) };
@@ -109,6 +123,22 @@ export class ProfissionaisService {
       });
     }
 
+    const categoriaIds = [
+      ...new Set(
+        input.servicos
+          .map((servico) => servico.categoriaId)
+          .filter((id): id is number => id !== null && id !== undefined),
+      ),
+    ];
+    if (categoriaIds.length > 0) {
+      const categoriasAtivas = await this.categorias.find({
+        where: { id: In(categoriaIds), ativo: true },
+      });
+      if (categoriasAtivas.length !== categoriaIds.length) {
+        throw badRequest('CATEGORIA_INVALIDA');
+      }
+    }
+
     let perfil = await this.perfis.findOne({ where: { usuarioId: user.id } });
     perfil ??= this.perfis.create({ usuarioId: user.id, verificado: false });
     perfil.usuario = usuario;
@@ -124,6 +154,7 @@ export class ProfissionaisService {
         input.servicos.map((servico) =>
           this.servicos.create({
             profissionalId: saved.id,
+            categoriaId: servico.categoriaId ?? null,
             nome: servico.nome,
             precoInicial: decimalOrNull(servico.precoInicial),
             ativo: true,
@@ -134,7 +165,7 @@ export class ProfissionaisService {
 
     const reloaded = await this.perfis.findOne({
       where: { id: saved.id },
-      relations: { usuario: true, servicos: true },
+      relations: { usuario: true, servicos: { categoria: true } },
     });
     if (reloaded === null) {
       throw new Error('Saved professional profile could not be reloaded.');
@@ -151,7 +182,7 @@ export class ProfissionaisService {
 
     const perfil = await this.perfis.findOne({
       where: { id },
-      relations: { usuario: true, servicos: true },
+      relations: { usuario: true, servicos: { categoria: true } },
     });
     if (perfil === null) {
       throw new NotFoundException({
@@ -174,6 +205,13 @@ function perfilPublico(perfil: ProfissionalPerfilEntity) {
     .map((servico) => ({
       id: servico.id,
       nome: servico.nome,
+      categoria:
+        servico.categoria === null || servico.categoria === undefined
+          ? null
+          : {
+              id: servico.categoria.id,
+              nome: servico.categoria.nome,
+            },
       precoInicial: numberOrNull(servico.precoInicial),
     }));
 
@@ -192,10 +230,19 @@ function perfilPublico(perfil: ProfissionalPerfilEntity) {
 
 function correspondeFiltros(
   perfil: ProfissionalPerfilEntity,
-  filtros: { readonly termo: string | null; readonly bairro: string | null },
+  filtros: ProfissionaisFiltros,
 ): boolean {
   const bairro = normalizar(filtros.bairro);
   if (bairro !== null && !normalizar(perfil.bairro)?.includes(bairro)) {
+    return false;
+  }
+
+  if (
+    filtros.categoriaId !== null &&
+    !(perfil.servicos ?? []).some(
+      (servico) => servico.categoriaId === filtros.categoriaId,
+    )
+  ) {
     return false;
   }
 
@@ -209,6 +256,7 @@ function correspondeFiltros(
     perfil.descricao,
     perfil.bairro,
     ...(perfil.servicos ?? []).map((servico) => servico.nome),
+    ...(perfil.servicos ?? []).map((servico) => servico.categoria?.nome ?? ''),
   ];
 
   return campos.some((campo) => normalizar(campo)?.includes(termo));
@@ -243,6 +291,7 @@ function parseServicos(value: unknown): readonly ProfissionalServicoInput[] {
     const body = objectBody(item);
     return {
       nome: textField(body, 'nome', 2, 90),
+      categoriaId: optionalId(body.categoriaId),
       precoInicial: optionalMoney(body.precoInicial),
     };
   });
@@ -282,6 +331,18 @@ function optionalText(value: unknown, max: number): string | null {
   if (text.length === 0) return null;
   if (text.length > max) throw badRequest('FILTRO_INVALIDO');
   return text;
+}
+
+function optionalId(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'string' && /^[1-9]\d{0,9}$/.test(value)) {
+    return Number(value);
+  }
+
+  throw badRequest('ID_INVALIDO');
 }
 
 function optionalMoney(value: unknown): number | null {

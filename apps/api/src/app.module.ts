@@ -1,15 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module.js';
+import { AvaliacoesModule } from './avaliacoes/avaliacoes.module.js';
+import { CategoriasModule } from './categorias/categorias.module.js';
 import {
   databaseRuntimeOptions,
   isAuthRuntimeConfigured,
 } from './database/database.config.js';
+import { MensagensModule } from './mensagens/mensagens.module.js';
 import { HealthController } from './health/health.controller.js';
 import { ProfissionaisModule } from './profissionais/profissionais.module.js';
+import { SolicitacoesModule } from './solicitacoes/solicitacoes.module.js';
 
 const runtimeImports = isAuthRuntimeConfigured()
-  ? [TypeOrmModule.forRoot(databaseRuntimeOptions()), AuthModule, ProfissionaisModule]
+  ? [
+      TypeOrmModule.forRoot(databaseRuntimeOptions()),
+      AuthModule,
+      CategoriasModule,
+      ProfissionaisModule,
+      SolicitacoesModule,
+      MensagensModule,
+      AvaliacoesModule,
+    ]
   : [];
 
 @Module({

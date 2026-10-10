@@ -110,6 +110,12 @@ paths:
           schema:
             type: string
             maxLength: 80
+        - name: categoriaId
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
           description: Public professional profiles
@@ -270,12 +276,318 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /categorias:
+    get:
+      operationId: getCategorias
+      summary: Lists active service categories
+      tags:
+        - Categorias
+      responses:
+        '200':
+          description: Active categories
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - categorias
+                properties:
+                  categorias:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Categoria'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      operationId: postCategoria
+      summary: Creates a service category through an administrative account
+      tags:
+        - Categorias
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaWriteRequest'
+      responses:
+        '201':
+          description: Created category
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - categoria
+                properties:
+                  categoria:
+                    $ref: '#/components/schemas/Categoria'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /categorias/admin:
+    get:
+      operationId: getCategoriasAdmin
+      summary: Lists all categories through an administrative account
+      tags:
+        - Categorias
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All categories
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - categorias
+                properties:
+                  categorias:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Categoria'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /categorias/{id}:
+    patch:
+      operationId: patchCategoria
+      summary: Updates a service category through an administrative account
+      tags:
+        - Categorias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaPatchRequest'
+      responses:
+        '200':
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - categoria
+                properties:
+                  categoria:
+                    $ref: '#/components/schemas/Categoria'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /solicitacoes:
+    post:
+      operationId: postSolicitacao
+      summary: Creates a service request in aguardando_resposta
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitacaoCreateRequest'
+      responses:
+        '201':
+          description: Created service request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - solicitacao
+                properties:
+                  solicitacao:
+                    $ref: '#/components/schemas/Solicitacao'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /solicitacoes/me:
+    get:
+      operationId: getMinhasSolicitacoes
+      summary: Lists service requests visible to the authenticated account
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Visible service requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - solicitacoes
+                properties:
+                  solicitacoes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Solicitacao'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /solicitacoes/{id}:
+    get:
+      operationId: getSolicitacaoById
+      summary: Gets a service request visible to the authenticated account
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          description: Service request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - solicitacao
+                properties:
+                  solicitacao:
+                    $ref: '#/components/schemas/Solicitacao'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /solicitacoes/{id}/aceitar:
+    patch:
+      operationId: patchSolicitacaoAceitar
+      summary: Provider accepts a pending request and creates an accepted appointment
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SolicitacaoResponse'
+        default:
+          $ref: '#/components/responses/ApiErrorResponse'
+  /solicitacoes/{id}/recusar:
+    patch:
+      operationId: patchSolicitacaoRecusar
+      summary: Provider refuses a pending request
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SolicitacaoResponse'
+        default:
+          $ref: '#/components/responses/ApiErrorResponse'
+  /solicitacoes/{id}/cancelar:
+    patch:
+      operationId: patchSolicitacaoCancelar
+      summary: Client cancels a pending or accepted request
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SolicitacaoResponse'
+        default:
+          $ref: '#/components/responses/ApiErrorResponse'
+  /solicitacoes/{id}/concluir:
+    patch:
+      operationId: patchSolicitacaoConcluir
+      summary: Client confirms conclusion of an accepted request
+      tags:
+        - Solicitacoes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SolicitacaoResponse'
+        default:
+          $ref: '#/components/responses/ApiErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    SolicitacaoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    SolicitacaoResponse:
+      description: Service request
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - solicitacao
+            properties:
+              solicitacao:
+                $ref: '#/components/schemas/Solicitacao'
+    ApiErrorResponse:
+      description: HTTP error with internal details omitted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
     HealthStatus:
       type: object
@@ -424,6 +736,11 @@ components:
                 type: string
                 minLength: 2
                 maxLength: 90
+              categoriaId:
+                type:
+                  - integer
+                  - 'null'
+                minimum: 1
               precoInicial:
                 type:
                   - number
@@ -471,6 +788,7 @@ components:
             required:
               - id
               - nome
+              - categoria
               - precoInicial
             properties:
               id:
@@ -478,10 +796,179 @@ components:
                 minimum: 1
               nome:
                 type: string
+              categoria:
+                anyOf:
+                  - $ref: '#/components/schemas/CategoriaResumo'
+                  - type: 'null'
               precoInicial:
                 type:
                   - number
                   - 'null'
+    Categoria:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - ativo
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        nome:
+          type: string
+        ativo:
+          type: boolean
+    CategoriaResumo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        nome:
+          type: string
+    CategoriaWriteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - nome
+      properties:
+        nome:
+          type: string
+          minLength: 2
+          maxLength: 80
+        ativo:
+          type: boolean
+    CategoriaPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        nome:
+          type: string
+          minLength: 2
+          maxLength: 80
+        ativo:
+          type: boolean
+    SolicitacaoCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - profissionalId
+        - descricao
+        - bairroAtendimento
+        - dataServico
+        - horarioServico
+      properties:
+        profissionalId:
+          type: integer
+          minimum: 1
+        categoriaId:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        descricao:
+          type: string
+          minLength: 10
+          maxLength: 600
+        bairroAtendimento:
+          type: string
+          minLength: 2
+          maxLength: 120
+        dataServico:
+          type: string
+          format: date
+        horarioServico:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+    Solicitacao:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - descricao
+        - bairroAtendimento
+        - dataServico
+        - horarioServico
+        - precoInicial
+        - cliente
+        - profissional
+        - categoria
+        - criadoEm
+        - atualizadoEm
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/SolicitacaoStatus'
+        descricao:
+          type: string
+        bairroAtendimento:
+          type: string
+        dataServico:
+          type: string
+          format: date
+        horarioServico:
+          type: string
+        precoInicial:
+          type:
+            - number
+            - 'null'
+        cliente:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - nome
+          properties:
+            id:
+              type: integer
+              minimum: 1
+            nome:
+              type: string
+        profissional:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - usuarioId
+            - nome
+            - verificado
+          properties:
+            id:
+              type: integer
+              minimum: 1
+            usuarioId:
+              type: integer
+              minimum: 1
+            nome:
+              type: string
+            verificado:
+              type: boolean
+        categoria:
+          anyOf:
+            - $ref: '#/components/schemas/CategoriaResumo'
+            - type: 'null'
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+    SolicitacaoStatus:
+      type: string
+      enum:
+        - aguardando_resposta
+        - aceita_agendada
+        - recusada
+        - cancelada
+        - conclusao_confirmada
     ApiError:
       type: object
       additionalProperties: false
