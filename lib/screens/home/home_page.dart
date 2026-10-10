@@ -191,28 +191,26 @@ class _HomeContentView extends StatelessWidget {
                 else
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final cardWidth = (constraints.maxWidth * 0.72).clamp(
-                        230.0,
-                        270.0,
-                      );
-                      return SizedBox(
-                        height: 320,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: content.featuredProfessionals.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final professional =
-                                content.featuredProfessionals[index];
-                            return SizedBox(
-                              width: cardWidth,
-                              child: _FeaturedProfessionalCard(
-                                professional: professional,
-                                onTap: () => onProfessionalTap(professional),
-                              ),
-                            );
-                          },
+                      final columns = constraints.maxWidth < 300 ? 1 : 2;
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        primary: false,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: content.featuredProfessionals.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 0.92 : 0.52,
                         ),
+                        itemBuilder: (context, index) {
+                          final professional =
+                              content.featuredProfessionals[index];
+                          return _FeaturedProfessionalCard(
+                            professional: professional,
+                            onTap: () => onProfessionalTap(professional),
+                          );
+                        },
                       );
                     },
                   ),
@@ -683,7 +681,7 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 154,
+              height: 136,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -785,7 +783,7 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: AppColors.texto,
                       ),
@@ -881,7 +879,7 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF15935F),
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
