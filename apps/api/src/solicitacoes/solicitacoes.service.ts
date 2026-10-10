@@ -8,9 +8,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CategoriaEntity } from '../database/entities/categoria.entity.js';
+import { ProfissionalDisponibilidadeEntity } from '../database/entities/profissional-disponibilidade.entity.js';
 import { ProfissionalPerfilEntity } from '../database/entities/profissional-perfil.entity.js';
 import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
 import { UsuarioEntity } from '../database/entities/usuario.entity.js';
+import { horarioDisponivel } from '../disponibilidade/disponibilidade.service.js';
 import { SolicitacaoStatus } from '../domain/solicitacao-status.js';
 import { UsuarioTipo } from '../domain/usuario-tipo.js';
 
@@ -28,6 +30,8 @@ export class SolicitacoesService {
   constructor(
     @InjectRepository(CategoriaEntity)
     private readonly categorias: Repository<CategoriaEntity>,
+    @InjectRepository(ProfissionalDisponibilidadeEntity)
+    private readonly disponibilidades: Repository<ProfissionalDisponibilidadeEntity>,
     @InjectRepository(ProfissionalPerfilEntity)
     private readonly profissionais: Repository<ProfissionalPerfilEntity>,
     @InjectRepository(SolicitacaoEntity)
@@ -70,6 +74,12 @@ export class SolicitacoesService {
         throw badRequest('CATEGORIA_INVALIDA');
       }
     }
+
+    await this.validarDisponibilidade(
+      profissional.id,
+      input.dataServico,
+      input.horarioServico,
+    );
 
     const solicitacao = this.solicitacoes.create({
       clienteId: cliente.id,
@@ -194,6 +204,22 @@ export class SolicitacoesService {
     }
 
     return solicitacao;
+  }
+
+  private async validarDisponibilidade(
+    profissionalId: number,
+    dataServico: string,
+    horarioServico: string,
+  ): Promise<void> {
+    const disponibilidades = await this.disponibilidades.find({
+      where: { profissionalId, ativo: true },
+    });
+    if (disponibilidades.length === 0) {
+      throw badRequest('DISPONIBILIDADE_NAO_CADASTRADA');
+    }
+    if (!horarioDisponivel(disponibilidades, dataServico, horarioServico)) {
+      throw badRequest('HORARIO_INDISPONIVEL');
+    }
   }
 }
 

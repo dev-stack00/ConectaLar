@@ -2,7 +2,11 @@ import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
 import { AvaliacaoEntity } from './entities/avaliacao.entity.js';
 import { CategoriaEntity } from './entities/categoria.entity.js';
+import { ClienteEnderecoEntity } from './entities/cliente-endereco.entity.js';
+import { ClientePerfilEntity } from './entities/cliente-perfil.entity.js';
+import { FavoritoProfissionalEntity } from './entities/favorito-profissional.entity.js';
 import { MensagemAtendimentoEntity } from './entities/mensagem-atendimento.entity.js';
+import { ProfissionalDisponibilidadeEntity } from './entities/profissional-disponibilidade.entity.js';
 import { ProfissionalPerfilEntity } from './entities/profissional-perfil.entity.js';
 import { ProfissionalServicoEntity } from './entities/profissional-servico.entity.js';
 import { SolicitacaoEntity } from './entities/solicitacao.entity.js';
@@ -76,6 +80,10 @@ export function databaseRuntimeOptions(): DataSourceOptions {
       SolicitacaoEntity,
       MensagemAtendimentoEntity,
       AvaliacaoEntity,
+      ClientePerfilEntity,
+      ClienteEnderecoEntity,
+      FavoritoProfissionalEntity,
+      ProfissionalDisponibilidadeEntity,
     ],
   };
 }

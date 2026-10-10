@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module.js';
 import { AvaliacoesModule } from './avaliacoes/avaliacoes.module.js';
 import { CategoriasModule } from './categorias/categorias.module.js';
+import { ClientesModule } from './clientes/clientes.module.js';
 import {
   databaseRuntimeOptions,
   isAuthRuntimeConfigured,
 } from './database/database.config.js';
+import { DisponibilidadeModule } from './disponibilidade/disponibilidade.module.js';
 import { MensagensModule } from './mensagens/mensagens.module.js';
 import { HealthController } from './health/health.controller.js';
 import { ProfissionaisModule } from './profissionais/profissionais.module.js';
@@ -21,6 +23,8 @@ const runtimeImports = isAuthRuntimeConfigured()
       SolicitacoesModule,
       MensagensModule,
       AvaliacoesModule,
+      ClientesModule,
+      DisponibilidadeModule,
     ]
   : [];
 

@@ -32,7 +32,7 @@ The API currently has no external service, CORS, upload, payment, push notificat
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `categorias`, `solicitacoes`, `mensagens_atendimento`, and `avaliacoes` tables needed for the current RF001/RF021 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF021 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -56,16 +56,35 @@ Authentication routes:
 
 Passwords are stored as `scrypt` hashes. Responses never include `senha_hash`.
 
+Client routes:
+
+- `GET /clientes/me` with `Authorization: Bearer <token>` for `cliente`
+- `PUT /clientes/me` with `Authorization: Bearer <token>` for `cliente`
+- `GET /clientes/me/enderecos` with `Authorization: Bearer <token>` for `cliente`
+- `POST /clientes/me/enderecos` with `Authorization: Bearer <token>` for `cliente`
+- `PATCH /clientes/me/enderecos/:id` with `Authorization: Bearer <token>` for `cliente`
+- `DELETE /clientes/me/enderecos/:id` with `Authorization: Bearer <token>` for `cliente`
+- `GET /clientes/me/favoritos` with `Authorization: Bearer <token>` for `cliente`
+- `POST /clientes/me/favoritos/:profissionalId` with `Authorization: Bearer <token>` for `cliente`
+- `DELETE /clientes/me/favoritos/:profissionalId` with `Authorization: Bearer <token>` for `cliente`
+
+Client profiles and addresses are private to the authenticated client. Favorite responses include only the same public professional data exposed by the professional search.
+
 Professional routes:
 
 - `GET /profissionais`
 - `GET /profissionais?termo=eletricista&bairro=jardim&categoriaId=1`
 - `GET /profissionais/:id`
+- `GET /profissionais/:id/disponibilidade`
 - `GET /profissionais/me` with `Authorization: Bearer <token>` for `profissional` or `empresa`
 - `PUT /profissionais/me` with `Authorization: Bearer <token>` for `profissional` or `empresa`
+- `GET /profissionais/me/disponibilidade` with `Authorization: Bearer <token>` for `profissional` or `empresa`
+- `PUT /profissionais/me/disponibilidade` with `Authorization: Bearer <token>` for `profissional` or `empresa`
 - `PATCH /profissionais/:id/verificacao` with `Authorization: Bearer <token>` for `administrador`
 
 Professional public responses do not expose e-mail, phone, address, documents, or password hashes. The `verificado` seal can only be changed through the administrative route; professionals cannot approve their own seal.
+
+Availability uses weekly recurring slots with `diaSemana` from `0` Sunday through `6` Saturday and `horaInicio`/`horaFim` in `HH:MM`. Service requests can be created and accepted only when the requested date/time falls inside an active slot. This is a minimal rule until final duration, capacity, exception, and concurrency policies are approved.
 
 Category routes:
 
