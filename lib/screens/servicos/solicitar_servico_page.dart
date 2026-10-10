@@ -4,6 +4,8 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/profissional.dart';
+import '../../services/api_service.dart';
+import '../../services/service_registry.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_bar_custom.dart';
 
@@ -25,6 +27,7 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
   String? _servicoSelecionado;
   bool _argumentosLidos = false;
   bool _solicitacaoEnviada = false;
+  bool _enviando = false;
   int? _solicitacaoId;
 
   @override
@@ -52,12 +55,50 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
     super.dispose();
   }
 
-  void _enviarSolicitacao() {
+  Future<void> _enviarSolicitacao() async {
     if (!_formKey.currentState!.validate()) return;
 
     final profissional = _profissional;
     if (profissional == null) return;
 
+    setState(() => _enviando = true);
+    try {
+      final data = _parseData(_dataController.text);
+      final response = await AppServices.instance.servicos.solicitar({
+        'profissionalId': profissional.id,
+        'categoriaId': profissional.categoriaIds.isEmpty
+            ? null
+            : profissional.categoriaIds.first,
+        'descricao': _descricaoController.text,
+        'bairroAtendimento': _bairroController.text,
+        'dataServico': _dataApi(data),
+        'horarioServico': _horarioController.text,
+      });
+      final solicitacao = response['solicitacao'];
+      setState(() {
+        _solicitacaoEnviada = true;
+        _solicitacaoId = solicitacao is Map<String, dynamic>
+            ? solicitacao['id'] as int?
+            : null;
+      });
+    } on ApiException catch (error) {
+      if (!AppServices.instance.auth.autenticado) {
+        _criarSolicitacaoMock(profissional);
+      } else {
+        _mostrarErro(error.message);
+      }
+    } catch (_) {
+      if (!AppServices.instance.auth.autenticado) {
+        _criarSolicitacaoMock(profissional);
+      } else {
+        _mostrarErro('Nao foi possivel enviar a solicitacao.');
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  void _criarSolicitacaoMock(Profissional profissional) {
     final solicitacaoId = ConectaLarMockStore.instance.criarSolicitacao(
       profissional: profissional,
       servico: _servicoSelecionado ?? profissional.descricao,
@@ -71,6 +112,13 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
       _solicitacaoEnviada = true;
       _solicitacaoId = solicitacaoId;
     });
+  }
+
+  void _mostrarErro(String mensagem) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -106,6 +154,7 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
                     onServicoChanged: (servico) =>
                         setState(() => _servicoSelecionado = servico),
                     onSubmit: _enviarSolicitacao,
+                    enviando: _enviando,
                   ),
               ],
             ),
@@ -181,6 +230,7 @@ class _FormularioSolicitacao extends StatelessWidget {
     required this.horarioController,
     required this.onServicoChanged,
     required this.onSubmit,
+    required this.enviando,
   });
 
   final GlobalKey<FormState> formKey;
@@ -191,7 +241,8 @@ class _FormularioSolicitacao extends StatelessWidget {
   final TextEditingController dataController;
   final TextEditingController horarioController;
   final ValueChanged<String?> onServicoChanged;
-  final VoidCallback onSubmit;
+  final Future<void> Function() onSubmit;
+  final bool enviando;
 
   @override
   Widget build(BuildContext context) {
@@ -306,9 +357,14 @@ class _FormularioSolicitacao extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   key: const ValueKey('solicitar-enviar'),
-                  onPressed: onSubmit,
-                  icon: const Icon(Icons.send_rounded),
-                  label: const Text('Enviar solicitação'),
+                  onPressed: enviando ? null : () => onSubmit(),
+                  icon: enviando
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Text(enviando ? 'Enviando...' : 'Enviar solicitação'),
                 ),
               ),
             ],
@@ -478,4 +534,11 @@ DateTime? _parseData(String valor) {
   final ano = int.tryParse(partes[2]);
   if (dia == null || mes == null || ano == null) return null;
   return DateTime(ano, mes, dia);
+}
+
+String _dataApi(DateTime? data) {
+  final value = data ?? DateTime.now();
+  final mes = value.month.toString().padLeft(2, '0');
+  final dia = value.day.toString().padLeft(2, '0');
+  return '${value.year}-$mes-$dia';
 }

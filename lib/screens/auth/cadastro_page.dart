@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../app/routes.dart';
 import '../../app/theme.dart';
-import '../../data/conectalar_mock_store.dart';
 import '../../models/usuario.dart';
+import '../../services/api_service.dart';
+import '../../services/service_registry.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_bar_custom.dart';
 
@@ -23,6 +24,7 @@ class _CadastroPageState extends State<CadastroPage> {
   final _confirmarSenhaController = TextEditingController();
   TipoUsuario _tipo = TipoUsuario.cliente;
   bool _aceitouTermos = false;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -34,24 +36,59 @@ class _CadastroPageState extends State<CadastroPage> {
     super.dispose();
   }
 
-  void _criarConta() {
+  Future<void> _criarConta() async {
     if (!_formKey.currentState!.validate() || !_aceitouTermos) {
       setState(() {});
       return;
     }
 
-    ConectaLarMockStore.instance.registrarConta(
-      nome: _nomeController.text,
-      email: _emailController.text,
-      telefone: _telefoneController.text,
-      tipo: _tipo,
-    );
+    setState(() => _enviando = true);
+    try {
+      final services = AppServices.instance;
+      await services.auth.cadastrar(
+        nome: _nomeController.text,
+        email: _emailController.text,
+        senha: _senhaController.text,
+        telefone: _telefoneController.text,
+        tipo: _tipo.valorBanco,
+      );
+      await _aceitarTermosAtuais();
 
-    if (_tipo == TipoUsuario.cliente) {
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
-    } else {
-      Navigator.pushReplacementNamed(context, AppRoutes.cadastroProfissional);
+      if (!mounted) return;
+      if (_tipo == TipoUsuario.cliente) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (_) => false,
+        );
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.cadastroProfissional);
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _mostrarErro(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarErro('Nao foi possivel criar a conta. Verifique sua conexao.');
+    } finally {
+      if (mounted) setState(() => _enviando = false);
     }
+  }
+
+  Future<void> _aceitarTermosAtuais() async {
+    final termos = await AppServices.instance.termos.atuais();
+    final payload = termos['termos'];
+    if (payload is! Map<String, dynamic>) return;
+    final versao = payload['versao'];
+    if (versao is String && versao.isNotEmpty) {
+      await AppServices.instance.termos.aceitar(versao);
+    }
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -179,9 +216,18 @@ class _CadastroPageState extends State<CadastroPage> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           key: const ValueKey('cadastro-criar-conta'),
-                          onPressed: _criarConta,
-                          icon: const Icon(Icons.person_add_alt_1),
-                          label: const Text('Criar conta'),
+                          onPressed: _enviando ? null : _criarConta,
+                          icon: _enviando
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.person_add_alt_1),
+                          label: Text(
+                            _enviando ? 'Criando conta...' : 'Criar conta',
+                          ),
                         ),
                       ),
                     ],

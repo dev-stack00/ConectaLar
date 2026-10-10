@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/routes.dart';
 import '../../app/theme.dart';
-import '../../data/conectalar_mock_store.dart';
+import '../../services/api_service.dart';
+import '../../services/service_registry.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_bar_custom.dart';
 
@@ -18,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController(text: 'mariana@email.com');
   final _senhaController = TextEditingController();
   bool _ocultarSenha = true;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -26,11 +28,32 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _entrar() {
+  Future<void> _entrar() async {
     if (!_formKey.currentState!.validate()) return;
 
-    ConectaLarMockStore.instance.loginComoCliente(email: _emailController.text);
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
+    setState(() => _enviando = true);
+    try {
+      await AppServices.instance.auth.login(
+        email: _emailController.text,
+        senha: _senhaController.text,
+      );
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _mostrarErro(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarErro('Nao foi possivel entrar. Verifique sua conexao.');
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -106,9 +129,16 @@ class _LoginPageState extends State<LoginPage> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           key: const ValueKey('login-entrar'),
-                          onPressed: _entrar,
-                          icon: const Icon(Icons.login_rounded),
-                          label: const Text('Entrar'),
+                          onPressed: _enviando ? null : _entrar,
+                          icon: _enviando
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.login_rounded),
+                          label: Text(_enviando ? 'Entrando...' : 'Entrar'),
                         ),
                       ),
                       TextButton(
@@ -140,7 +170,7 @@ class _AvisoSegurancaAuth extends StatelessWidget {
         SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Nesta versão local a senha é validada para o fluxo, mas não é armazenada. A autenticação final deve ocorrer na API.',
+            'Sua senha e sessao sao validadas pela API do ConectaLar. Nunca compartilhe seus dados de acesso.',
             style: TextStyle(color: AppColors.textoSuave, height: 1.35),
           ),
         ),

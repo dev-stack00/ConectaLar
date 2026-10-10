@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../models/categoria.dart';
+import '../../models/home_content.dart';
 import '../../models/profissional.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 import '../../widgets/profissional_card.dart';
 import '../home/home_mock_data.dart';
@@ -21,8 +23,17 @@ class _BuscaPageState extends State<BuscaPage> {
 
   Categoria? _categoriaSelecionada;
   bool _argumentosLidos = false;
+  late Future<HomeContent> _contentFuture;
 
-  List<Categoria> get _categorias => HomeMockData.content.categories;
+  List<Categoria> _categorias = HomeMockData.content.categories;
+  List<Profissional> _profissionais =
+      HomeMockData.content.featuredProfessionals;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentFuture = _carregarConteudo();
+  }
 
   @override
   void didChangeDependencies() {
@@ -43,11 +54,19 @@ class _BuscaPageState extends State<BuscaPage> {
     super.dispose();
   }
 
+  Future<HomeContent> _carregarConteudo() async {
+    try {
+      return await AppServices.instance.carregarHome();
+    } catch (_) {
+      return HomeMockData.content;
+    }
+  }
+
   List<Profissional> get _resultados {
     final termo = _normalizar(_termoController.text);
     final bairro = _normalizar(_bairroController.text);
 
-    return HomeMockData.content.featuredProfessionals
+    return _profissionais
         .where((profissional) {
           final correspondeCategoria =
               _categoriaSelecionada == null ||
@@ -111,38 +130,51 @@ class _BuscaPageState extends State<BuscaPage> {
 
   @override
   Widget build(BuildContext context) {
-    final resultados = _resultados;
     return Scaffold(
       backgroundColor: AppColors.fundo,
       appBar: const AppBarCustom(title: 'Buscar profissionais'),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        children: [
-          _FiltrosBusca(
-            termoController: _termoController,
-            bairroController: _bairroController,
-            categorias: _categorias,
-            categoriaSelecionada: _categoriaSelecionada,
-            onTextoAlterado: (_) => setState(() {}),
-            onCategoriaSelecionada: _selecionarCategoria,
-            onLimparFiltros: _temFiltros ? _limparFiltros : null,
-          ),
-          const SizedBox(height: 22),
-          _CabecalhoResultados(total: resultados.length),
-          const SizedBox(height: 12),
-          if (resultados.isEmpty)
-            const _EstadoVazioBusca()
-          else
-            ...resultados.map(
-              (profissional) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ProfissionalCard(
-                  profissional: profissional,
-                  onTap: () => _abrirProfissional(profissional),
-                ),
+      body: FutureBuilder<HomeContent>(
+        future: _contentFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            _categorias = snapshot.data!.categories;
+            _profissionais = snapshot.data!.featuredProfessionals;
+          }
+          final resultados = _resultados;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            children: [
+              _FiltrosBusca(
+                termoController: _termoController,
+                bairroController: _bairroController,
+                categorias: _categorias,
+                categoriaSelecionada: _categoriaSelecionada,
+                onTextoAlterado: (_) => setState(() {}),
+                onCategoriaSelecionada: _selecionarCategoria,
+                onLimparFiltros: _temFiltros ? _limparFiltros : null,
               ),
-            ),
-        ],
+              const SizedBox(height: 22),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const Center(child: CircularProgressIndicator())
+              else ...[
+                _CabecalhoResultados(total: resultados.length),
+                const SizedBox(height: 12),
+                if (resultados.isEmpty)
+                  const _EstadoVazioBusca()
+                else
+                  ...resultados.map(
+                    (profissional) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ProfissionalCard(
+                        profissional: profissional,
+                        onTap: () => _abrirProfissional(profissional),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../models/categoria.dart';
 import '../../models/home_content.dart';
 import '../../models/profissional.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/bottom_navigation.dart';
 import 'home_mock_data.dart';
 
@@ -35,8 +36,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _loadContent() {
-    _contentFuture =
-        widget.loadContent?.call() ?? Future.value(HomeMockData.content);
+    _contentFuture = widget.loadContent?.call() ?? _carregarConteudoPadrao();
+  }
+
+  Future<HomeContent> _carregarConteudoPadrao() async {
+    try {
+      return await AppServices.instance.carregarHome();
+    } catch (_) {
+      return HomeMockData.content;
+    }
   }
 
   void _retry() {
