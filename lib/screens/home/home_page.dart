@@ -84,6 +84,7 @@ class _HomePageState extends State<HomePage> {
             return _HomeContentView(
               content: snapshot.data ?? const HomeContent(),
               onSearchTap: () => _openRoute(AppRoutes.busca),
+              onNotificationsTap: () => _openRoute(AppRoutes.notificacoes),
               onCategoryTap: (category) =>
                   _openRoute(AppRoutes.busca, arguments: category),
               onProfessionalTap: (professional) => _openRoute(
@@ -106,12 +107,14 @@ class _HomeContentView extends StatelessWidget {
   const _HomeContentView({
     required this.content,
     required this.onSearchTap,
+    required this.onNotificationsTap,
     required this.onCategoryTap,
     required this.onProfessionalTap,
   });
 
   final HomeContent content;
   final VoidCallback onSearchTap;
+  final VoidCallback onNotificationsTap;
   final ValueChanged<Categoria> onCategoryTap;
   final ValueChanged<Profissional> onProfessionalTap;
 
@@ -123,7 +126,10 @@ class _HomeContentView extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          _HomeHero(onSearchTap: onSearchTap),
+          _HomeHero(
+            onSearchTap: onSearchTap,
+            onNotificationsTap: onNotificationsTap,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
             child: Column(
@@ -300,9 +306,13 @@ class _CategoryStyle {
 }
 
 class _HomeHero extends StatelessWidget {
-  const _HomeHero({required this.onSearchTap});
+  const _HomeHero({
+    required this.onSearchTap,
+    required this.onNotificationsTap,
+  });
 
   final VoidCallback onSearchTap;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +364,10 @@ class _HomeHero extends StatelessWidget {
                 top: 12,
                 left: 20,
                 right: 20,
-                child: _BrandHeader(compact: compact),
+                child: _BrandHeader(
+                  compact: compact,
+                  onNotificationsTap: onNotificationsTap,
+                ),
               ),
               Positioned(
                 top: 86,
@@ -377,9 +390,16 @@ class _HomeHero extends StatelessWidget {
 }
 
 class _BrandHeader extends StatelessWidget {
-  const _BrandHeader({required this.compact});
+  const _BrandHeader({required this.compact, required this.onNotificationsTap});
 
   final bool compact;
+  final VoidCallback onNotificationsTap;
+
+  Future<int> _naoLidas() async {
+    if (!AppServices.instance.auth.autenticado) return 0;
+    final response = await AppServices.instance.notificacoes.resumo();
+    return response['naoLidas'] is int ? response['naoLidas'] as int : 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -436,37 +456,44 @@ class _BrandHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              onPressed: () {},
-              tooltip: 'Notificações',
-              icon: const Icon(Icons.notifications_none_rounded, size: 27),
-              color: AppColors.texto,
-            ),
-            Positioned(
-              right: 3,
-              top: 2,
-              child: Container(
-                width: 17,
-                height: 17,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE84E55),
-                  shape: BoxShape.circle,
+        FutureBuilder<int>(
+          future: _naoLidas(),
+          builder: (context, snapshot) {
+            final total = snapshot.data ?? 0;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  onPressed: onNotificationsTap,
+                  tooltip: 'Notificações',
+                  icon: const Icon(Icons.notifications_none_rounded, size: 27),
+                  color: AppColors.texto,
                 ),
-                child: const Text(
-                  '2',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                if (total > 0)
+                  Positioned(
+                    right: 3,
+                    top: 2,
+                    child: Container(
+                      width: 17,
+                      height: 17,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE84E55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        total > 9 ? '9+' : '$total',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ],
     );

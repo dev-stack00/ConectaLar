@@ -9,6 +9,25 @@ class ClienteService {
     return _api.get('clientes/me');
   }
 
+  Future<Map<String, dynamic>> listarEnderecos() {
+    return _api.get('clientes/me/enderecos');
+  }
+
+  Future<Map<String, dynamic>> criarEndereco(Map<String, dynamic> dados) {
+    return _api.post('clientes/me/enderecos', body: dados);
+  }
+
+  Future<Map<String, dynamic>> atualizarEndereco(
+    int id,
+    Map<String, dynamic> dados,
+  ) {
+    return _api.patch('clientes/me/enderecos/$id', body: dados);
+  }
+
+  Future<Map<String, dynamic>> removerEndereco(int id) {
+    return _api.delete('clientes/me/enderecos/$id');
+  }
+
   Future<Map<String, dynamic>> listarFavoritos() {
     return _api.get('clientes/me/favoritos');
   }

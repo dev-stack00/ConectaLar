@@ -8,8 +8,12 @@ import '../screens/chat/chat_page.dart';
 import '../screens/chat/conversa_page.dart';
 import '../screens/favoritos/favoritos_page.dart';
 import '../screens/home/home_page.dart';
+import '../screens/notificacoes/notificacoes_page.dart';
+import '../screens/perfil/enderecos_page.dart';
 import '../screens/perfil/perfil_page.dart';
 import '../screens/profissional/cadastro_profissional_page.dart';
+import '../screens/profissional/disponibilidade_page.dart';
+import '../screens/profissional/documentos_verificacao_page.dart';
 import '../screens/profissional/perfil_profissional_page.dart';
 import '../screens/servicos/detalhes_servico_page.dart';
 import '../screens/servicos/meus_servicos_page.dart';
@@ -30,6 +34,10 @@ abstract final class AppRoutes {
   static const chat = '/chat';
   static const conversa = '/chat/conversa';
   static const perfil = '/perfil';
+  static const enderecos = '/perfil/enderecos';
+  static const notificacoes = '/notificacoes';
+  static const disponibilidadeProfissional = '/profissionais/disponibilidade';
+  static const documentosProfissional = '/profissionais/documentos';
 
   static final Map<String, WidgetBuilder> routes = {
     home: (_) => const HomePage(),
@@ -46,5 +54,9 @@ abstract final class AppRoutes {
     chat: (_) => const ChatPage(),
     conversa: (_) => const ConversaPage(),
     perfil: (_) => const PerfilPage(),
+    enderecos: (_) => const EnderecosPage(),
+    notificacoes: (_) => const NotificacoesPage(),
+    disponibilidadeProfissional: (_) => const DisponibilidadePage(),
+    documentosProfissional: (_) => const DocumentosVerificacaoPage(),
   };
 }

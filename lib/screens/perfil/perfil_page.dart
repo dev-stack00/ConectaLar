@@ -121,17 +121,15 @@ class _PerfilPageState extends State<PerfilPage> {
                   icon: Icons.location_on_outlined,
                   title: 'Endereço de atendimento',
                   subtitle: 'Oculto até aceite válido do profissional',
-                  onTap: () => _mostrarInfo(
-                    context,
-                    'O endereço completo deve ser protegido pelo backend.',
-                  ),
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.enderecos),
                 ),
                 _PerfilOpcao(
                   icon: Icons.notifications_outlined,
                   title: 'Notificações',
                   subtitle: 'Eventos reais do atendimento',
                   onTap: () =>
-                      _mostrarInfo(context, 'Preferências dependem de P14.'),
+                      Navigator.pushNamed(context, AppRoutes.notificacoes),
                 ),
                 _PerfilOpcao(
                   icon: Icons.lock_outline,

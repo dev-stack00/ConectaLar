@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
+import '../../models/cliente_endereco.dart';
+import '../../models/disponibilidade.dart';
 import '../../models/profissional.dart';
+import '../../services/api_mappers.dart';
 import '../../services/api_service.dart';
 import '../../services/service_registry.dart';
 import '../../utils/validators.dart';
@@ -29,6 +32,8 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
   bool _solicitacaoEnviada = false;
   bool _enviando = false;
   int? _solicitacaoId;
+  Future<List<ClienteEndereco>>? _enderecosFuture;
+  Future<List<Disponibilidade>>? _disponibilidadeFuture;
 
   @override
   void didChangeDependencies() {
@@ -42,8 +47,46 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
           ? arguments.descricao
           : arguments.servicos.first;
       _bairroController.text = arguments.bairro;
+      _enderecosFuture = _carregarEnderecos();
+      _disponibilidadeFuture = _carregarDisponibilidade(arguments.id);
     }
     _argumentosLidos = true;
+  }
+
+  Future<List<ClienteEndereco>> _carregarEnderecos() async {
+    if (!AppServices.instance.auth.autenticado) return const [];
+    try {
+      final response = await AppServices.instance.clientes.listarEnderecos();
+      final enderecos = listFromApi(
+        response['enderecos'],
+        clienteEnderecoFromApi,
+      );
+      ClienteEndereco? principal;
+      for (final endereco in enderecos) {
+        if (endereco.principal) {
+          principal = endereco;
+          break;
+        }
+      }
+      if (principal != null && mounted) {
+        _bairroController.text = principal.bairro;
+      }
+      return enderecos;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<Disponibilidade>> _carregarDisponibilidade(
+    int profissionalId,
+  ) async {
+    try {
+      final response = await AppServices.instance.profissionais
+          .disponibilidadePublica(profissionalId);
+      return listFromApi(response['disponibilidades'], disponibilidadeFromApi);
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override
@@ -151,8 +194,13 @@ class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
                     bairroController: _bairroController,
                     dataController: _dataController,
                     horarioController: _horarioController,
+                    enderecosFuture: _enderecosFuture,
+                    disponibilidadeFuture: _disponibilidadeFuture,
                     onServicoChanged: (servico) =>
                         setState(() => _servicoSelecionado = servico),
+                    onEnderecoChanged: (endereco) => setState(
+                      () => _bairroController.text = endereco.bairro,
+                    ),
                     onSubmit: _enviarSolicitacao,
                     enviando: _enviando,
                   ),
@@ -228,7 +276,10 @@ class _FormularioSolicitacao extends StatelessWidget {
     required this.bairroController,
     required this.dataController,
     required this.horarioController,
+    required this.enderecosFuture,
+    required this.disponibilidadeFuture,
     required this.onServicoChanged,
+    required this.onEnderecoChanged,
     required this.onSubmit,
     required this.enviando,
   });
@@ -240,7 +291,10 @@ class _FormularioSolicitacao extends StatelessWidget {
   final TextEditingController bairroController;
   final TextEditingController dataController;
   final TextEditingController horarioController;
+  final Future<List<ClienteEndereco>>? enderecosFuture;
+  final Future<List<Disponibilidade>>? disponibilidadeFuture;
   final ValueChanged<String?> onServicoChanged;
+  final ValueChanged<ClienteEndereco> onEnderecoChanged;
   final Future<void> Function() onSubmit;
   final bool enviando;
 
@@ -292,6 +346,41 @@ class _FormularioSolicitacao extends StatelessWidget {
                 validator: validarCampoObrigatorio,
               ),
               const SizedBox(height: 12),
+              if (enderecosFuture != null)
+                FutureBuilder<List<ClienteEndereco>>(
+                  future: enderecosFuture,
+                  builder: (context, snapshot) {
+                    final enderecos =
+                        snapshot.data ?? const <ClienteEndereco>[];
+                    if (enderecos.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        DropdownButtonFormField<int>(
+                          decoration: const InputDecoration(
+                            labelText: 'Endereço cadastrado',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            for (final endereco in enderecos)
+                              DropdownMenuItem(
+                                value: endereco.id,
+                                child: Text(endereco.resumo),
+                              ),
+                          ],
+                          onChanged: (id) {
+                            for (final endereco in enderecos) {
+                              if (endereco.id == id) {
+                                onEnderecoChanged(endereco);
+                                break;
+                              }
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    );
+                  },
+                ),
               TextFormField(
                 key: const ValueKey('solicitar-bairro'),
                 controller: bairroController,
@@ -303,6 +392,18 @@ class _FormularioSolicitacao extends StatelessWidget {
                 validator: validarCampoObrigatorio,
               ),
               const SizedBox(height: 12),
+              if (disponibilidadeFuture != null)
+                FutureBuilder<List<Disponibilidade>>(
+                  future: disponibilidadeFuture,
+                  builder: (context, snapshot) {
+                    final itens = snapshot.data ?? const <Disponibilidade>[];
+                    if (itens.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _DisponibilidadeResumo(itens: itens),
+                    );
+                  },
+                ),
               Row(
                 children: [
                   Expanded(
@@ -399,6 +500,45 @@ class _AvisoSolicitacao extends StatelessWidget {
                 'do profissional.',
                 style: TextStyle(color: AppColors.texto),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DisponibilidadeResumo extends StatelessWidget {
+  const _DisponibilidadeResumo({required this.itens});
+
+  final List<Disponibilidade> itens;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.verdeClaro,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Disponibilidade informada',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              itens
+                  .take(4)
+                  .map(
+                    (item) =>
+                        '${_diaSemana(item.diaSemana)} ${item.horaInicio}-${item.horaFim}',
+                  )
+                  .join(', '),
+              style: const TextStyle(color: AppColors.textoSuave),
             ),
           ],
         ),
@@ -541,4 +681,17 @@ String _dataApi(DateTime? data) {
   final mes = value.month.toString().padLeft(2, '0');
   final dia = value.day.toString().padLeft(2, '0');
   return '${value.year}-$mes-$dia';
+}
+
+String _diaSemana(int dia) {
+  return switch (dia) {
+    0 => 'Dom',
+    1 => 'Seg',
+    2 => 'Ter',
+    3 => 'Qua',
+    4 => 'Qui',
+    5 => 'Sex',
+    6 => 'Sáb',
+    _ => 'Dia',
+  };
 }
