@@ -8,6 +8,7 @@ const tokenTtlSeconds = 60 * 60;
 interface AccessTokenPayload {
   readonly sub: number;
   readonly tipo: UsuarioTipo;
+  readonly tv: number;
   readonly iat: number;
   readonly exp: number;
 }
@@ -23,6 +24,7 @@ export class TokenService {
     const payload = {
       sub: usuario.id,
       tipo: usuario.tipo,
+      tv: usuario.tokenVersion ?? 0,
       iat: now,
       exp: now + tokenTtlSeconds,
     };
@@ -109,6 +111,7 @@ function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
     Number.isSafeInteger(value.sub) &&
     typeof value.tipo === 'string' &&
     Object.values(UsuarioTipo).includes(value.tipo as UsuarioTipo) &&
+    Number.isSafeInteger(value.tv) &&
     Number.isSafeInteger(value.iat) &&
     Number.isSafeInteger(value.exp)
   );

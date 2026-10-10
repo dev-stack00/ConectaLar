@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsuarioSenhaResetEntity } from '../database/entities/usuario-senha-reset.entity.js';
 import { UsuarioEntity } from '../database/entities/usuario.entity.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthController } from './auth.controller.js';
@@ -9,9 +10,9 @@ import { RolesGuard } from './roles.guard.js';
 import { TokenService } from './token.service.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UsuarioEntity])],
+  imports: [TypeOrmModule.forFeature([UsuarioEntity, UsuarioSenhaResetEntity])],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, TokenService, AuthGuard, RolesGuard],
-  exports: [TypeOrmModule, AuthGuard, RolesGuard, TokenService],
+  exports: [TypeOrmModule, AuthGuard, RolesGuard, TokenService, PasswordService],
 })
 export class AuthModule {}

@@ -1,9 +1,11 @@
 import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
+import { AdminAuditoriaEntity } from './entities/admin-auditoria.entity.js';
 import { AvaliacaoEntity } from './entities/avaliacao.entity.js';
 import { CategoriaEntity } from './entities/categoria.entity.js';
 import { ClienteEnderecoEntity } from './entities/cliente-endereco.entity.js';
 import { ClientePerfilEntity } from './entities/cliente-perfil.entity.js';
+import { DenunciaEntity } from './entities/denuncia.entity.js';
 import { FavoritoProfissionalEntity } from './entities/favorito-profissional.entity.js';
 import { MensagemAtendimentoEntity } from './entities/mensagem-atendimento.entity.js';
 import { NotificacaoEntity } from './entities/notificacao.entity.js';
@@ -12,6 +14,8 @@ import { ProfissionalDisponibilidadeEntity } from './entities/profissional-dispo
 import { ProfissionalPerfilEntity } from './entities/profissional-perfil.entity.js';
 import { ProfissionalServicoEntity } from './entities/profissional-servico.entity.js';
 import { SolicitacaoEntity } from './entities/solicitacao.entity.js';
+import { TermoAceiteEntity } from './entities/termo-aceite.entity.js';
+import { UsuarioSenhaResetEntity } from './entities/usuario-senha-reset.entity.js';
 import { UsuarioEntity } from './entities/usuario.entity.js';
 
 function requiredDatabaseValue(name: string): string {
@@ -88,6 +92,10 @@ export function databaseRuntimeOptions(): DataSourceOptions {
       ProfissionalDisponibilidadeEntity,
       NotificacaoEntity,
       ProfissionalDocumentoVerificacaoEntity,
+      DenunciaEntity,
+      AdminAuditoriaEntity,
+      TermoAceiteEntity,
+      UsuarioSenhaResetEntity,
     ],
   };
 }

@@ -32,7 +32,7 @@ The API currently has no external service, CORS, upload, payment, push notificat
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `usuario_senha_resets`, `admin_auditoria`, `termo_aceites`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `denuncias`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -53,8 +53,21 @@ Authentication routes:
 
 - `POST /auth/cadastro`
 - `POST /auth/login`
+- `POST /auth/senha/recuperacao`
+- `POST /auth/senha/recuperacao/confirmar`
+- `PATCH /auth/senha` with `Authorization: Bearer <token>`
 
-Passwords are stored as `scrypt` hashes. Responses never include `senha_hash`.
+Passwords are stored as `scrypt` hashes. Responses never include `senha_hash`. Password reset stores only a SHA-256 hash of the recovery token, expires tokens after 30 minutes, invalidates prior unused reset tokens, and marks tokens as used after password change. Recovery requests return a generic success response so the API does not reveal whether an e-mail exists. Access tokens include a token version and are invalidated when the password changes. Local development can expose `devToken` only when `EXPOSE_PASSWORD_RESET_TOKEN=true`; do not enable that flag in production.
+
+Administrative user routes:
+
+- `GET /admin/usuarios` with `Authorization: Bearer <token>` for `administrador`
+- `GET /admin/usuarios?tipo=cliente&ativo=true&termo=maria` with `Authorization: Bearer <token>` for `administrador`
+- `GET /admin/usuarios/:id` with `Authorization: Bearer <token>` for `administrador`
+- `POST /admin/usuarios/administradores` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /admin/usuarios/:id/status` with `Authorization: Bearer <token>` for `administrador`
+
+Administrative user responses never include password hashes. Public registration still cannot create administrator accounts; administrator creation is restricted to authenticated administrators and stores the password with the same `scrypt` hashing. Status changes are soft activation/deactivation only, are audited in `admin_auditoria`, cannot deactivate the current administrator's own account, and cannot deactivate the last active administrator. Invite flow, MFA, detailed permissions, and account recovery remain pending under P02/P15.
 
 Client routes:
 
@@ -109,12 +122,32 @@ Service request routes:
 
 New requests always start as `aguardando_resposta`; they become `aceita_agendada` only after the requested provider accepts them. Request responses expose only the attendance neighborhood, never the client's full address.
 
+History routes:
+
+- `GET /historico/atendimentos/me` with `Authorization: Bearer <token>` for `cliente`, `profissional`, or `empresa`
+- `GET /historico/atendimentos/me?finalizados=true` with `Authorization: Bearer <token>`
+- `GET /historico/atendimentos/me?status=conclusao_confirmada` with `Authorization: Bearer <token>`
+- `GET /admin/historico/atendimentos` with `Authorization: Bearer <token>` for `administrador`
+- `GET /admin/historico/atendimentos?usuarioId=1&finalizados=true` with `Authorization: Bearer <token>` for `administrador`
+
+History responses reuse service request data that is already authorized for the participant or administrator. They do not expose full client addresses and do not create new service states beyond the formal request statuses.
+
 Chat routes:
 
 - `GET /solicitacoes/:solicitacaoId/mensagens` with `Authorization: Bearer <token>` for participants or `administrador`
 - `POST /solicitacoes/:solicitacaoId/mensagens` with `Authorization: Bearer <token>` for the requesting `cliente` or requested `profissional`/`empresa`
 
 Messages are linked to a service request. New messages are allowed only while the request is `aguardando_resposta` or `aceita_agendada`; final states keep the history available to authorized participants without reopening the service.
+
+Report routes:
+
+- `POST /solicitacoes/:solicitacaoId/denuncias` with `Authorization: Bearer <token>` for the requesting `cliente` or requested `profissional`/`empresa`
+- `GET /denuncias/me` with `Authorization: Bearer <token>`
+- `GET /denuncias/moderacao` with `Authorization: Bearer <token>` for `administrador`
+- `GET /denuncias/moderacao?status=pendente` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /denuncias/:id/moderacao` with `Authorization: Bearer <token>` for `administrador`
+
+Reports are tied to an existing service request and can target only the opposite participant. Creating a report does not change the service request status, block an account, hide a review, or apply any punishment automatically. Administrative review records `em_analise`, `resolvida`, or `rejeitada`; final statuses require a decision note. Detailed targets, categories, penalties, contestation, and retention policies remain pending under P11/P13.
 
 Review routes:
 
@@ -143,3 +176,11 @@ Document verification routes:
 - `PATCH /documentos-verificacao/:id/analisar` with `Authorization: Bearer <token>` for `administrador`
 
 Document analysis accepts only `aprovado` or `rejeitado`; rejected documents require `motivoRejeicao`. Approval activates the professional verification seal, rejection removes it, and the professional receives an internal notification. This is metadata/reference handling only; binary upload, storage provider, file retention, and allowed formats remain pending under P10.
+
+Terms and privacy notice routes:
+
+- `GET /termos/atuais`
+- `GET /termos/aceites/me` with `Authorization: Bearer <token>`
+- `POST /termos/aceites/me` with `Authorization: Bearer <token>`
+
+The current terms are written in plain language and include privacy/LGPD explanations, protected address handling, external payment, verification seal limits, user responsibilities, and version changes. Acceptance stores only the authenticated user, accepted version, channel, and timestamp; it does not store raw IP address or user-agent data. Retention, deletion, legal text approval, and re-consent rules remain pending under P13/P18.
