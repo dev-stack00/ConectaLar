@@ -8,6 +8,7 @@ import {
   databaseRuntimeOptions,
   isAuthRuntimeConfigured,
 } from './database/database.config.js';
+import { DenunciasModule } from './denuncias/denuncias.module.js';
 import { DisponibilidadeModule } from './disponibilidade/disponibilidade.module.js';
 import { MensagensModule } from './mensagens/mensagens.module.js';
 import { NotificacoesModule } from './notificacoes/notificacoes.module.js';
@@ -29,6 +30,7 @@ const runtimeImports = isAuthRuntimeConfigured()
       DisponibilidadeModule,
       NotificacoesModule,
       VerificacaoModule,
+      DenunciasModule,
     ]
   : [];
 

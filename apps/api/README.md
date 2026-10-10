@@ -32,7 +32,7 @@ The API currently has no external service, CORS, upload, payment, push notificat
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `profissional_documentos_verificacao`, `denuncias`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -115,6 +115,16 @@ Chat routes:
 - `POST /solicitacoes/:solicitacaoId/mensagens` with `Authorization: Bearer <token>` for the requesting `cliente` or requested `profissional`/`empresa`
 
 Messages are linked to a service request. New messages are allowed only while the request is `aguardando_resposta` or `aceita_agendada`; final states keep the history available to authorized participants without reopening the service.
+
+Report routes:
+
+- `POST /solicitacoes/:solicitacaoId/denuncias` with `Authorization: Bearer <token>` for the requesting `cliente` or requested `profissional`/`empresa`
+- `GET /denuncias/me` with `Authorization: Bearer <token>`
+- `GET /denuncias/moderacao` with `Authorization: Bearer <token>` for `administrador`
+- `GET /denuncias/moderacao?status=pendente` with `Authorization: Bearer <token>` for `administrador`
+- `PATCH /denuncias/:id/moderacao` with `Authorization: Bearer <token>` for `administrador`
+
+Reports are tied to an existing service request and can target only the opposite participant. Creating a report does not change the service request status, block an account, hide a review, or apply any punishment automatically. Administrative review records `em_analise`, `resolvida`, or `rejeitada`; final statuses require a decision note. Detailed targets, categories, penalties, contestation, and retention policies remain pending under P11/P13.
 
 Review routes:
 
