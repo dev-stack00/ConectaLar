@@ -2,7 +2,9 @@ import '../models/home_content.dart';
 import 'api_mappers.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
+import 'avaliacao_service.dart';
 import 'categoria_service.dart';
+import 'cliente_service.dart';
 import 'denuncia_service.dart';
 import 'historico_service.dart';
 import 'mensagem_service.dart';
@@ -17,7 +19,9 @@ class AppServices {
 
   AppServices._shared() : api = ApiService() {
     auth = AuthService(api);
+    avaliacoes = AvaliacaoService(api);
     categorias = CategoriaService(api);
+    clientes = ClienteService(api);
     profissionais = ProfissionalService(api);
     servicos = ServicoService(api);
     historico = HistoricoService(api);
@@ -30,7 +34,9 @@ class AppServices {
 
   final ApiService api;
   late AuthService auth;
+  late AvaliacaoService avaliacoes;
   late CategoriaService categorias;
+  late ClienteService clientes;
   late ProfissionalService profissionais;
   late ServicoService servicos;
   late HistoricoService historico;

@@ -4,6 +4,8 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/solicitacao.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_bar_custom.dart';
 
@@ -22,6 +24,14 @@ class _CadastroProfissionalPageState extends State<CadastroProfissionalPage> {
   final _precoController = TextEditingController(text: '80');
   bool _empresa = false;
   bool _documentosEnviados = false;
+  bool _salvando = false;
+  late Future<List<AtendimentoResumo>> _pendentesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendentesFuture = _carregarPendentes();
+  }
 
   @override
   void dispose() {
@@ -31,9 +41,52 @@ class _CadastroProfissionalPageState extends State<CadastroProfissionalPage> {
     super.dispose();
   }
 
-  void _continuar() {
+  Future<List<AtendimentoResumo>> _carregarPendentes() async {
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      return ConectaLarMockStore.instance.servicos
+          .where(
+            (servico) =>
+                servico.solicitacao.status ==
+                StatusSolicitacao.aguardandoResposta,
+          )
+          .toList(growable: false);
+    }
+
+    final response = await services.servicos.minhas();
+    return listFromApi(response['solicitacoes'], atendimentoResumoFromApi)
+        .where(
+          (servico) =>
+              servico.solicitacao.status ==
+              StatusSolicitacao.aguardandoResposta,
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _continuar() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _documentosEnviados = true);
+    if (_salvando) return;
+
+    setState(() => _salvando = true);
+    try {
+      if (AppServices.instance.auth.autenticado) {
+        await AppServices.instance.profissionais.salvarMeuPerfil({
+          'descricao': _descricaoController.text.trim(),
+          'bairro': _bairroController.text.trim(),
+          'precoInicial': _precoController.text.trim(),
+        });
+      }
+      setState(() => _documentosEnviados = true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível salvar o perfil profissional.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
   }
 
   @override
@@ -44,67 +97,77 @@ class _CadastroProfissionalPageState extends State<CadastroProfissionalPage> {
       backgroundColor: AppColors.fundo,
       body: AnimatedBuilder(
         animation: store,
-        builder: (context, _) {
-          final pendentes = store.servicos
-              .where(
-                (servico) =>
-                    servico.solicitacao.status ==
-                    StatusSolicitacao.aguardandoResposta,
-              )
-              .toList(growable: false);
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-            children: [
-              const Text(
-                'Profissional/Empresa',
-                style: TextStyle(
-                  color: AppColors.texto,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          children: [
+            const Text(
+              'Profissional/Empresa',
+              style: TextStyle(
+                color: AppColors.texto,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Passo 1 de 4: dados de atuação, serviços e documentação.',
-                style: TextStyle(color: AppColors.textoSuave),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Passo 1 de 4: dados de atuação, serviços e documentação.',
+              style: TextStyle(color: AppColors.textoSuave),
+            ),
+            const SizedBox(height: 16),
+            _FormularioProfissional(
+              formKey: _formKey,
+              descricaoController: _descricaoController,
+              bairroController: _bairroController,
+              precoController: _precoController,
+              empresa: _empresa,
+              documentosEnviados: _documentosEnviados,
+              salvando: _salvando,
+              onEmpresaChanged: (value) => setState(() => _empresa = value),
+              onContinuar: () => _continuar(),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Solicitações recebidas',
+              style: TextStyle(
+                color: AppColors.texto,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(height: 16),
-              _FormularioProfissional(
-                formKey: _formKey,
-                descricaoController: _descricaoController,
-                bairroController: _bairroController,
-                precoController: _precoController,
-                empresa: _empresa,
-                documentosEnviados: _documentosEnviados,
-                onEmpresaChanged: (value) => setState(() => _empresa = value),
-                onContinuar: _continuar,
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Solicitações recebidas',
-                style: TextStyle(
-                  color: AppColors.texto,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (pendentes.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Nenhuma solicitação aguardando resposta.'),
-                  ),
-                )
-              else
-                for (final atendimento in pendentes) ...[
-                  _PedidoRecebidoCard(atendimento: atendimento, store: store),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          );
-        },
+            ),
+            const SizedBox(height: 10),
+            FutureBuilder<List<AtendimentoResumo>>(
+              future: _pendentesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final pendentes = snapshot.data ?? const <AtendimentoResumo>[];
+                if (pendentes.isEmpty) {
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Nenhuma solicitação aguardando resposta.'),
+                    ),
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final atendimento in pendentes) ...[
+                      _PedidoRecebidoCard(
+                        atendimento: atendimento,
+                        store: store,
+                        onAtualizado: () => setState(
+                          () => _pendentesFuture = _carregarPendentes(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -118,6 +181,7 @@ class _FormularioProfissional extends StatelessWidget {
     required this.precoController,
     required this.empresa,
     required this.documentosEnviados,
+    required this.salvando,
     required this.onEmpresaChanged,
     required this.onContinuar,
   });
@@ -128,6 +192,7 @@ class _FormularioProfissional extends StatelessWidget {
   final TextEditingController precoController;
   final bool empresa;
   final bool documentosEnviados;
+  final bool salvando;
   final ValueChanged<bool> onEmpresaChanged;
   final VoidCallback onContinuar;
 
@@ -185,7 +250,7 @@ class _FormularioProfissional extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   key: const ValueKey('profissional-continuar'),
-                  onPressed: onContinuar,
+                  onPressed: salvando ? null : onContinuar,
                   icon: Icon(
                     documentosEnviados
                         ? Icons.verified_user_outlined
@@ -228,13 +293,48 @@ class _DocumentoAviso extends StatelessWidget {
 }
 
 class _PedidoRecebidoCard extends StatelessWidget {
-  const _PedidoRecebidoCard({required this.atendimento, required this.store});
+  const _PedidoRecebidoCard({
+    required this.atendimento,
+    required this.store,
+    required this.onAtualizado,
+  });
 
   final AtendimentoResumo atendimento;
   final ConectaLarMockStore store;
+  final VoidCallback onAtualizado;
 
   @override
   Widget build(BuildContext context) {
+    Future<void> transicionar({
+      required Future<Map<String, dynamic>> Function(int id) api,
+      required bool Function(int id) mock,
+      required String sucesso,
+    }) async {
+      if (AppServices.instance.auth.autenticado) {
+        try {
+          await api(atendimento.solicitacao.id);
+          onAtualizado();
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(sucesso)));
+        } catch (_) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Não foi possível atualizar a solicitação.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      mock(atendimento.solicitacao.id);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(sucesso)));
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -265,26 +365,20 @@ class _PedidoRecebidoCard extends StatelessWidget {
                   key: ValueKey(
                     'profissional-aceitar-${atendimento.solicitacao.id}',
                   ),
-                  onPressed: () {
-                    store.aceitarSolicitacaoComoProfissional(
-                      atendimento.solicitacao.id,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Solicitação aceita.')),
-                    );
-                  },
+                  onPressed: () => transicionar(
+                    api: AppServices.instance.servicos.aceitar,
+                    mock: store.aceitarSolicitacaoComoProfissional,
+                    sucesso: 'Solicitação aceita.',
+                  ),
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('Aceitar'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    store.recusarSolicitacaoComoProfissional(
-                      atendimento.solicitacao.id,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Solicitação recusada.')),
-                    );
-                  },
+                  onPressed: () => transicionar(
+                    api: AppServices.instance.servicos.recusar,
+                    mock: store.recusarSolicitacaoComoProfissional,
+                    sucesso: 'Solicitação recusada.',
+                  ),
                   icon: const Icon(Icons.close_rounded),
                   label: const Text('Recusar'),
                 ),

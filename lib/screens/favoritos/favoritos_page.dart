@@ -4,11 +4,63 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/profissional.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 import '../../widgets/profissional_card.dart';
 
-class FavoritosPage extends StatelessWidget {
+class FavoritosPage extends StatefulWidget {
   const FavoritosPage({super.key});
+
+  @override
+  State<FavoritosPage> createState() => _FavoritosPageState();
+}
+
+class _FavoritosPageState extends State<FavoritosPage> {
+  late Future<List<Profissional>> _favoritosFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _favoritosFuture = _carregarFavoritos();
+  }
+
+  Future<List<Profissional>> _carregarFavoritos() async {
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      return ConectaLarMockStore.instance.profissionaisFavoritos;
+    }
+
+    final response = await services.clientes.listarFavoritos();
+    final favoritos = response['favoritos'];
+    if (favoritos is! List) return const [];
+    return favoritos
+        .whereType<Map<String, dynamic>>()
+        .map((favorito) => favorito['profissional'])
+        .whereType<Map<String, dynamic>>()
+        .map(profissionalFromApi)
+        .toList(growable: false);
+  }
+
+  Future<void> _removerFavorito(
+    ConectaLarMockStore store,
+    int profissionalId,
+  ) async {
+    if (AppServices.instance.auth.autenticado) {
+      try {
+        await AppServices.instance.clientes.removerFavorito(profissionalId);
+        setState(() => _favoritosFuture = _carregarFavoritos());
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível remover o favorito.')),
+        );
+      }
+      return;
+    }
+
+    store.toggleFavorito(profissionalId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,53 +70,62 @@ class FavoritosPage extends StatelessWidget {
       backgroundColor: AppColors.fundo,
       body: AnimatedBuilder(
         animation: store,
-        builder: (context, _) {
-          final favoritos = store.profissionaisFavoritos;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-            children: [
-              const Text(
-                'Profissionais e serviços salvos',
-                style: TextStyle(
-                  color: AppColors.texto,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+        builder: (context, _) => FutureBuilder<List<Profissional>>(
+          future: _favoritosFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final favoritos = snapshot.data ?? const <Profissional>[];
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+              children: [
+                const Text(
+                  'Profissionais e serviços salvos',
+                  style: TextStyle(
+                    color: AppColors.texto,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Os serviços favoritos aparecem como referência visual; o escopo atual salva perfis profissionais.',
-                style: TextStyle(color: AppColors.textoSuave, height: 1.35),
-              ),
-              const SizedBox(height: 16),
-              const Row(
-                children: [
-                  ChoiceChip(label: Text('Profissionais'), selected: true),
-                  SizedBox(width: 8),
-                  ChoiceChip(label: Text('Serviços'), selected: false),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (favoritos.isEmpty)
-                const _FavoritosVazios()
-              else
-                for (final profissional in favoritos) ...[
-                  _FavoritoItem(profissional: profissional, store: store),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          );
-        },
+                const SizedBox(height: 6),
+                const Text(
+                  'Os serviços favoritos aparecem como referência visual; o escopo atual salva perfis profissionais.',
+                  style: TextStyle(color: AppColors.textoSuave, height: 1.35),
+                ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    ChoiceChip(label: Text('Profissionais'), selected: true),
+                    SizedBox(width: 8),
+                    ChoiceChip(label: Text('Serviços'), selected: false),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (favoritos.isEmpty)
+                  const _FavoritosVazios()
+                else
+                  for (final profissional in favoritos) ...[
+                    _FavoritoItem(
+                      profissional: profissional,
+                      onRemover: () => _removerFavorito(store, profissional.id),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 class _FavoritoItem extends StatelessWidget {
-  const _FavoritoItem({required this.profissional, required this.store});
+  const _FavoritoItem({required this.profissional, required this.onRemover});
 
   final Profissional profissional;
-  final ConectaLarMockStore store;
+  final VoidCallback onRemover;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +145,7 @@ class _FavoritoItem extends StatelessWidget {
           child: IconButton.filledTonal(
             key: ValueKey('favorito-remover-${profissional.id}'),
             tooltip: 'Remover dos favoritos',
-            onPressed: () => store.toggleFavorito(profissional.id),
+            onPressed: onRemover,
             icon: const Icon(Icons.favorite, color: Color(0xFFC53030)),
           ),
         ),

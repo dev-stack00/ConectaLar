@@ -4,6 +4,7 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/profissional.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 
 class PerfilProfissionalPage extends StatelessWidget {
@@ -46,6 +47,30 @@ class _PerfilProfissionalContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foto = profissional.fotoAsset;
+    Future<void> salvarFavorito() async {
+      if (AppServices.instance.auth.autenticado) {
+        try {
+          await AppServices.instance.clientes.adicionarFavorito(
+            profissional.id,
+          );
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profissional salvo nos favoritos.')),
+          );
+        } catch (_) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Não foi possível salvar este favorito.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      store.toggleFavorito(profissional.id);
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
       children: [
@@ -53,7 +78,7 @@ class _PerfilProfissionalContent extends StatelessWidget {
           profissional: profissional,
           fotoAsset: foto,
           favorito: store.isFavorito(profissional.id),
-          onFavoritoTap: () => store.toggleFavorito(profissional.id),
+          onFavoritoTap: salvarFavorito,
         ),
         const SizedBox(height: 18),
         _SecaoPerfil(
