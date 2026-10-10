@@ -6,7 +6,7 @@ class ProfissionalService {
   final ApiService _api;
 
   Future<Map<String, dynamic>> listar() {
-    return _api.get('profissionais/listar.php');
+    return _api.get('profissionais');
   }
 
   Future<Map<String, dynamic>> buscar({
@@ -17,14 +17,38 @@ class ProfissionalService {
     final filtros = <String, String>{
       if (termo != null && termo.isNotEmpty) 'termo': termo,
       if (bairro != null && bairro.isNotEmpty) 'bairro': bairro,
+      if (categoriaId != null && categoriaId.isNotEmpty)
+        'categoriaId': categoriaId,
     };
-    if (categoriaId != null) {
-      filtros['categoria_id'] = categoriaId;
-    }
-    return _api.get('profissionais/buscar.php', queryParameters: filtros);
+    return _api.get('profissionais', queryParameters: filtros);
   }
 
-  Future<Map<String, dynamic>> cadastrar(Map<String, dynamic> dados) {
-    return _api.post('profissionais/cadastrar.php', body: dados);
+  Future<Map<String, dynamic>> obter(int profissionalId) {
+    return _api.get('profissionais/$profissionalId');
+  }
+
+  Future<Map<String, dynamic>> meuPerfil() {
+    return _api.get('profissionais/me');
+  }
+
+  Future<Map<String, dynamic>> salvarMeuPerfil(Map<String, dynamic> dados) {
+    return _api.put('profissionais/me', body: dados);
+  }
+
+  Future<Map<String, dynamic>> disponibilidadePublica(int profissionalId) {
+    return _api.get('profissionais/$profissionalId/disponibilidade');
+  }
+
+  Future<Map<String, dynamic>> minhaDisponibilidade() {
+    return _api.get('profissionais/me/disponibilidade');
+  }
+
+  Future<Map<String, dynamic>> salvarMinhaDisponibilidade(
+    List<Map<String, dynamic>> disponibilidades,
+  ) {
+    return _api.put(
+      'profissionais/me/disponibilidade',
+      body: {'disponibilidades': disponibilidades},
+    );
   }
 }

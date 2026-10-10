@@ -18,6 +18,13 @@ class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  String? _accessToken;
+
+  bool get autenticado => _accessToken != null;
+
+  void definirToken(String? token) {
+    _accessToken = token == null || token.trim().isEmpty ? null : token.trim();
+  }
 
   Future<Map<String, dynamic>> get(
     String endpoint, {
@@ -40,6 +47,13 @@ class ApiService {
     return _request('PUT', endpoint, body: body);
   }
 
+  Future<Map<String, dynamic>> patch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) {
+    return _request('PATCH', endpoint, body: body);
+  }
+
   Future<Map<String, dynamic>> delete(String endpoint) {
     return _request('DELETE', endpoint);
   }
@@ -55,6 +69,10 @@ class ApiService {
     final uri = _buildUri(endpoint, queryParameters);
     final request = http.Request(method, uri)
       ..headers['Accept'] = 'application/json';
+
+    if (_accessToken != null) {
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+    }
     if (body != null) {
       request.headers['Content-Type'] = 'application/json; charset=utf-8';
       request.body = jsonEncode(body);
@@ -62,35 +80,37 @@ class ApiService {
 
     final timeout = Duration(seconds: AppConstants.apiTimeoutSeconds);
     final streamedResponse = await _client.send(request).timeout(timeout);
-    final response = await http.Response.fromStream(streamedResponse)
-        .timeout(timeout);
+    final response = await http.Response.fromStream(
+      streamedResponse,
+    ).timeout(timeout);
 
     final Object? decoded;
     try {
-      decoded = jsonDecode(response.body);
+      decoded = response.body.trim().isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
     } on FormatException {
       throw ApiException(
-        'A API retornou uma resposta inválida.',
+        'A API retornou uma resposta invalida.',
         statusCode: response.statusCode,
       );
     }
 
     if (decoded is! Map<String, dynamic>) {
       throw ApiException(
-        'A API retornou uma resposta inválida.',
+        'A API retornou uma resposta invalida.',
         statusCode: response.statusCode,
       );
     }
 
-    if (response.statusCode < 200 ||
-        response.statusCode >= 300 ||
-        decoded['success'] != true) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded['message'];
       throw ApiException(
-        message is String ? message : 'Não foi possível concluir a requisição.',
+        message is String ? message : 'Nao foi possivel concluir a requisicao.',
         statusCode: response.statusCode,
       );
     }
+
     return decoded;
   }
 

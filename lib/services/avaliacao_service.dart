@@ -5,16 +5,29 @@ class AvaliacaoService {
 
   final ApiService _api;
 
-  Future<Map<String, dynamic>> listar({int? profissionalId}) {
-    return _api.get(
-      'avaliacoes/listar.php',
-      queryParameters: profissionalId == null
-          ? null
-          : {'profissional_id': '$profissionalId'},
+  Future<Map<String, dynamic>> listarDaSolicitacao(int solicitacaoId) {
+    return _api.get('solicitacoes/$solicitacaoId/avaliacoes');
+  }
+
+  Future<Map<String, dynamic>> avaliarProfissional({
+    required int solicitacaoId,
+    required int nota,
+    String? comentario,
+  }) {
+    return _api.post(
+      'solicitacoes/$solicitacaoId/avaliacoes/profissional',
+      body: {'nota': nota, 'comentario': ?comentario},
     );
   }
 
-  Future<Map<String, dynamic>> cadastrar(Map<String, dynamic> dados) {
-    return _api.post('avaliacoes/cadastrar.php', body: dados);
+  Future<Map<String, dynamic>> avaliarCliente({
+    required int solicitacaoId,
+    required int nota,
+    String? comentario,
+  }) {
+    return _api.post(
+      'solicitacoes/$solicitacaoId/avaliacoes/cliente',
+      body: {'nota': nota, 'comentario': ?comentario},
+    );
   }
 }
