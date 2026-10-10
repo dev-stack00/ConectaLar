@@ -778,33 +778,64 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      professional.nome,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.texto,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          size: 15,
-                          color: AppColors.estrela,
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: AppColors.verdeClaro,
+                          backgroundImage: image == null
+                              ? null
+                              : AssetImage(image),
+                          child: image == null
+                              ? const Icon(
+                                  Icons.person_outline_rounded,
+                                  color: AppColors.verde,
+                                  size: 18,
+                                )
+                              : null,
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          professional.notaMedia == null
-                              ? 'Novo profissional'
-                              : '${professional.notaMedia!.toStringAsFixed(1).replaceAll('.', ',')} (${professional.quantidadeAvaliacoes ?? 0})',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textoSuave,
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                professional.nome,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.texto,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: AppColors.estrela,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Expanded(
+                                    child: Text(
+                                      professional.notaMedia == null
+                                          ? 'Novo profissional'
+                                          : '${professional.notaMedia!.toStringAsFixed(1).replaceAll('.', ',')} (${professional.quantidadeAvaliacoes ?? 0})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textoSuave,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -833,32 +864,15 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                     ),
                     const SizedBox(height: 7),
                     if (professional.servicos.isNotEmpty)
-                      Wrap(
-                        spacing: 5,
-                        runSpacing: 4,
-                        children: [
-                          for (final servico in professional.servicos.take(2))
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.verdeClaro,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Text(
-                                'Serviço: $servico',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.verdeEscuro,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
+                      Text(
+                        'Serviços: ${professional.servicos.take(2).join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textoSuave,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       )
                     else
                       Text(
