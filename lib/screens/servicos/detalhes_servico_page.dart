@@ -4,6 +4,8 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/solicitacao.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 
 class DetalhesServicoPage extends StatelessWidget {
@@ -16,10 +18,45 @@ class DetalhesServicoPage extends StatelessWidget {
     return null;
   }
 
+  Future<AtendimentoResumo?> _carregarAtendimento(int? solicitacaoId) async {
+    if (solicitacaoId == null) return null;
+
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      return ConectaLarMockStore.instance.atendimentoPorId(solicitacaoId);
+    }
+
+    final response = await services.servicos.obter(solicitacaoId);
+    final solicitacao = response['solicitacao'];
+    return solicitacao is Map<String, dynamic>
+        ? atendimentoResumoFromApi(solicitacao)
+        : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = ConectaLarMockStore.instance;
     final solicitacaoId = _solicitacaoId(context);
+    if (!AppServices.instance.auth.autenticado) {
+      return Scaffold(
+        appBar: const AppBarCustom(title: 'Detalhes do serviço'),
+        backgroundColor: AppColors.fundo,
+        body: SafeArea(
+          top: false,
+          child: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) {
+              final atualizado = solicitacaoId == null
+                  ? null
+                  : store.atendimentoPorId(solicitacaoId);
+              return atualizado == null
+                  ? const _DetalhesVazio()
+                  : _DetalhesSolicitacao(atendimento: atualizado, store: store);
+            },
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: const AppBarCustom(title: 'Detalhes do serviço'),
@@ -28,14 +65,22 @@ class DetalhesServicoPage extends StatelessWidget {
         top: false,
         child: AnimatedBuilder(
           animation: store,
-          builder: (context, _) {
-            final atendimento = solicitacaoId == null
-                ? null
-                : store.atendimentoPorId(solicitacaoId);
-            return atendimento == null
-                ? const _DetalhesVazio()
-                : _DetalhesSolicitacao(atendimento: atendimento, store: store);
-          },
+          builder: (context, _) => FutureBuilder<AtendimentoResumo?>(
+            future: _carregarAtendimento(solicitacaoId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) return const _DetalhesErro();
+              final atendimento = snapshot.data;
+              return atendimento == null
+                  ? const _DetalhesVazio()
+                  : _DetalhesSolicitacao(
+                      atendimento: atendimento,
+                      store: store,
+                    );
+            },
+          ),
         ),
       ),
     );
@@ -55,6 +100,14 @@ class _DetalhesSolicitacao extends StatefulWidget {
 class _DetalhesSolicitacaoState extends State<_DetalhesSolicitacao> {
   final _comentarioController = TextEditingController();
   int _nota = 5;
+  late AtendimentoResumo _atendimento;
+  bool _enviando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _atendimento = widget.atendimento;
+  }
 
   @override
   void dispose() {
@@ -68,62 +121,111 @@ class _DetalhesSolicitacaoState extends State<_DetalhesSolicitacao> {
     ).showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
-  void _cancelar() {
-    final ok = widget.store.cancelarSolicitacao(
-      widget.atendimento.solicitacao.id,
-    );
-    _notificar(
-      ok
-          ? 'Solicitação cancelada.'
-          : 'Cancelamento não permitido para este status.',
+  Future<void> _executarTransicao(
+    Future<Map<String, dynamic>> Function(int id) request,
+    bool Function(int id) fallback,
+    String sucesso,
+    String falha,
+  ) async {
+    if (_enviando) return;
+    setState(() => _enviando = true);
+    try {
+      if (AppServices.instance.auth.autenticado) {
+        final response = await request(_atendimento.solicitacao.id);
+        final solicitacao = response['solicitacao'];
+        if (solicitacao is Map<String, dynamic>) {
+          setState(() => _atendimento = atendimentoResumoFromApi(solicitacao));
+        }
+        _notificar(sucesso);
+      } else {
+        final ok = fallback(_atendimento.solicitacao.id);
+        final atualizado = widget.store.atendimentoPorId(
+          _atendimento.solicitacao.id,
+        );
+        if (atualizado != null) setState(() => _atendimento = atualizado);
+        _notificar(ok ? sucesso : falha);
+      }
+    } catch (_) {
+      _notificar(falha);
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  Future<void> _cancelar() {
+    return _executarTransicao(
+      AppServices.instance.servicos.cancelar,
+      widget.store.cancelarSolicitacao,
+      'Solicitação cancelada.',
+      'Cancelamento não permitido para este status.',
     );
   }
 
-  void _aceitar() {
-    final ok = widget.store.aceitarSolicitacaoComoProfissional(
-      widget.atendimento.solicitacao.id,
-    );
-    _notificar(
-      ok
-          ? 'Solicitação aceita e registrada como aceita_agendada.'
-          : 'Aceite não permitido para este status.',
+  Future<void> _aceitar() {
+    return _executarTransicao(
+      AppServices.instance.servicos.aceitar,
+      widget.store.aceitarSolicitacaoComoProfissional,
+      'Solicitação aceita e registrada como aceita_agendada.',
+      'Aceite não permitido para este status.',
     );
   }
 
-  void _recusar() {
-    final ok = widget.store.recusarSolicitacaoComoProfissional(
-      widget.atendimento.solicitacao.id,
-    );
-    _notificar(
-      ok ? 'Solicitação recusada.' : 'Recusa não permitida para este status.',
-    );
-  }
-
-  void _concluir() {
-    final ok = widget.store.confirmarConclusao(
-      widget.atendimento.solicitacao.id,
-    );
-    _notificar(
-      ok
-          ? 'Conclusão confirmada pelo cliente.'
-          : 'Conclusão só é permitida para aceita_agendada.',
+  Future<void> _recusar() {
+    return _executarTransicao(
+      AppServices.instance.servicos.recusar,
+      widget.store.recusarSolicitacaoComoProfissional,
+      'Solicitação recusada.',
+      'Recusa não permitida para este status.',
     );
   }
 
-  void _avaliar() {
-    final ok = widget.store.avaliarAtendimento(
-      solicitacaoId: widget.atendimento.solicitacao.id,
-      nota: _nota,
-      comentario: _comentarioController.text,
+  Future<void> _concluir() {
+    return _executarTransicao(
+      AppServices.instance.servicos.concluir,
+      widget.store.confirmarConclusao,
+      'Conclusão confirmada pelo cliente.',
+      'Conclusão só é permitida para aceita_agendada.',
     );
-    _notificar(
-      ok ? 'Avaliação registrada.' : 'Avaliação indisponível para este status.',
-    );
+  }
+
+  Future<void> _avaliar() async {
+    if (_enviando) return;
+    setState(() => _enviando = true);
+    try {
+      if (AppServices.instance.auth.autenticado) {
+        await AppServices.instance.avaliacoes.avaliarProfissional(
+          solicitacaoId: _atendimento.solicitacao.id,
+          nota: _nota,
+          comentario: _comentarioController.text,
+        );
+        setState(() => _atendimento = _atendimento.copyWith(avaliado: true));
+        _notificar('Avaliação registrada.');
+      } else {
+        final ok = widget.store.avaliarAtendimento(
+          solicitacaoId: _atendimento.solicitacao.id,
+          nota: _nota,
+          comentario: _comentarioController.text,
+        );
+        final atualizado = widget.store.atendimentoPorId(
+          _atendimento.solicitacao.id,
+        );
+        if (atualizado != null) setState(() => _atendimento = atualizado);
+        _notificar(
+          ok
+              ? 'Avaliação registrada.'
+              : 'Avaliação indisponível para este status.',
+        );
+      }
+    } catch (_) {
+      _notificar('Avaliação indisponível para este status.');
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final atendimento = widget.atendimento;
+    final atendimento = _atendimento;
     final solicitacao = atendimento.solicitacao;
     final data = solicitacao.dataServico;
     final dataFormatada =
@@ -197,10 +299,10 @@ class _DetalhesSolicitacaoState extends State<_DetalhesSolicitacao> {
             AppRoutes.conversa,
             arguments: solicitacao.id,
           ),
-          onCancelar: _cancelar,
-          onAceitar: _aceitar,
-          onRecusar: _recusar,
-          onConcluir: _concluir,
+          onCancelar: () => _cancelar(),
+          onAceitar: () => _aceitar(),
+          onRecusar: () => _recusar(),
+          onConcluir: () => _concluir(),
         ),
         if (solicitacao.status == StatusSolicitacao.conclusaoConfirmada &&
             !atendimento.avaliado) ...[
@@ -209,7 +311,7 @@ class _DetalhesSolicitacaoState extends State<_DetalhesSolicitacao> {
             nota: _nota,
             controller: _comentarioController,
             onNotaChanged: (nota) => setState(() => _nota = nota),
-            onAvaliar: _avaliar,
+            onAvaliar: () => _avaliar(),
           ),
         ],
         const SizedBox(height: 16),
@@ -463,6 +565,27 @@ class _DetalhesVazio extends StatelessWidget {
         padding: EdgeInsets.all(24),
         child: Text(
           'Nenhuma solicitação foi selecionada.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textoSuave,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetalhesErro extends StatelessWidget {
+  const _DetalhesErro();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'Não foi possível carregar esta solicitação.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textoSuave,

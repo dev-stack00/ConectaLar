@@ -3,10 +3,46 @@ import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
+import '../../models/usuario.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 
-class PerfilPage extends StatelessWidget {
+class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
+
+  @override
+  State<PerfilPage> createState() => _PerfilPageState();
+}
+
+class _PerfilPageState extends State<PerfilPage> {
+  late Future<Usuario> _usuarioFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _usuarioFuture = _carregarUsuario();
+  }
+
+  Future<Usuario> _carregarUsuario() async {
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      return ConectaLarMockStore.instance.usuarioAtual;
+    }
+
+    final response = await services.clientes.meuPerfil();
+    final cliente = response['cliente'];
+    return cliente is Map<String, dynamic>
+        ? usuarioFromApi(cliente)
+        : ConectaLarMockStore.instance.usuarioAtual;
+  }
+
+  Future<void> _sair() async {
+    await AppServices.instance.auth.logout();
+    ConectaLarMockStore.instance.logout();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,113 +52,112 @@ class PerfilPage extends StatelessWidget {
       backgroundColor: AppColors.fundo,
       body: AnimatedBuilder(
         animation: store,
-        builder: (context, _) {
-          final usuario = store.usuarioAtual;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 34,
-                        backgroundColor: AppColors.verdeClaro,
-                        foregroundColor: AppColors.verdeEscuro,
-                        child: Text(
-                          usuario.nome.characters.first.toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 24,
+        builder: (context, _) => FutureBuilder<Usuario>(
+          future: _usuarioFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final usuario = snapshot.data ?? store.usuarioAtual;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: AppColors.verdeClaro,
+                          foregroundColor: AppColors.verdeEscuro,
+                          child: Text(
+                            usuario.nome.characters.first.toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 24,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              usuario.nome,
-                              style: const TextStyle(
-                                color: AppColors.texto,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                usuario.nome,
+                                style: const TextStyle(
+                                  color: AppColors.texto,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              usuario.tipo.valorBanco,
-                              style: const TextStyle(
-                                color: AppColors.textoSuave,
-                                fontWeight: FontWeight.w700,
+                              const SizedBox(height: 4),
+                              Text(
+                                usuario.tipo.valorBanco,
+                                style: const TextStyle(
+                                  color: AppColors.textoSuave,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              const _DadosProtegidos(),
-              const SizedBox(height: 14),
-              _PerfilOpcao(
-                icon: Icons.badge_outlined,
-                title: 'Meus dados',
-                subtitle: 'Nome, e-mail e telefone',
-                onTap: () =>
-                    _mostrarInfo(context, 'Edição completa virá com a API.'),
-              ),
-              _PerfilOpcao(
-                icon: Icons.location_on_outlined,
-                title: 'Endereço de atendimento',
-                subtitle: 'Oculto até aceite válido do profissional',
-                onTap: () => _mostrarInfo(
-                  context,
-                  'O endereço completo deve ser protegido pelo backend.',
+                const SizedBox(height: 14),
+                const _DadosProtegidos(),
+                const SizedBox(height: 14),
+                _PerfilOpcao(
+                  icon: Icons.badge_outlined,
+                  title: 'Meus dados',
+                  subtitle: 'Nome, e-mail e telefone',
+                  onTap: () =>
+                      _mostrarInfo(context, 'Edição completa virá com a API.'),
                 ),
-              ),
-              _PerfilOpcao(
-                icon: Icons.notifications_outlined,
-                title: 'Notificações',
-                subtitle: 'Eventos reais do atendimento',
-                onTap: () =>
-                    _mostrarInfo(context, 'Preferências dependem de P14.'),
-              ),
-              _PerfilOpcao(
-                icon: Icons.lock_outline,
-                title: 'Segurança',
-                subtitle: 'Sessão, senha e recuperação de acesso',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.login),
-              ),
-              _PerfilOpcao(
-                icon: Icons.privacy_tip_outlined,
-                title: 'Privacidade',
-                subtitle: 'Dados privados e LGPD',
-                onTap: () => _mostrarInfo(
-                  context,
-                  'Dados sensíveis não devem aparecer em logs, links públicos ou telas sem vínculo.',
-                ),
-              ),
-              _PerfilOpcao(
-                icon: Icons.logout_rounded,
-                title: 'Sair da conta',
-                subtitle: 'Encerrar acesso local',
-                onTap: () {
-                  store.logout();
-                  Navigator.pushNamedAndRemoveUntil(
+                _PerfilOpcao(
+                  icon: Icons.location_on_outlined,
+                  title: 'Endereço de atendimento',
+                  subtitle: 'Oculto até aceite válido do profissional',
+                  onTap: () => _mostrarInfo(
                     context,
-                    AppRoutes.login,
-                    (_) => false,
-                  );
-                },
-              ),
-            ],
-          );
-        },
+                    'O endereço completo deve ser protegido pelo backend.',
+                  ),
+                ),
+                _PerfilOpcao(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notificações',
+                  subtitle: 'Eventos reais do atendimento',
+                  onTap: () =>
+                      _mostrarInfo(context, 'Preferências dependem de P14.'),
+                ),
+                _PerfilOpcao(
+                  icon: Icons.lock_outline,
+                  title: 'Segurança',
+                  subtitle: 'Sessão, senha e recuperação de acesso',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.login),
+                ),
+                _PerfilOpcao(
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacidade',
+                  subtitle: 'Dados privados e LGPD',
+                  onTap: () => _mostrarInfo(
+                    context,
+                    'Dados sensíveis não devem aparecer em logs, links públicos ou telas sem vínculo.',
+                  ),
+                ),
+                _PerfilOpcao(
+                  icon: Icons.logout_rounded,
+                  title: 'Sair da conta',
+                  subtitle: 'Encerrar acesso local',
+                  onTap: _sair,
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

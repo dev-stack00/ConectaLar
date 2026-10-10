@@ -1,7 +1,10 @@
 import '../models/categoria.dart';
 import '../models/home_content.dart';
+import '../models/mensagem.dart';
 import '../models/profissional.dart';
 import '../models/solicitacao.dart';
+import '../models/usuario.dart';
+import '../data/conectalar_mock_store.dart';
 
 HomeContent homeContentFromApi({
   required Map<String, dynamic> categoriasResponse,
@@ -78,10 +81,55 @@ Solicitacao solicitacaoFromApi(Map<String, dynamic> json) {
   );
 }
 
+AtendimentoResumo atendimentoResumoFromApi(Map<String, dynamic> json) {
+  final profissional = json['profissional'];
+  final categoria = json['categoria'];
+  return AtendimentoResumo(
+    profissional: profissional is Map<String, dynamic>
+        ? stringValue(profissional['nome'])
+        : 'Profissional',
+    categoria: categoria is Map<String, dynamic>
+        ? stringValue(categoria['nome'])
+        : 'Servico',
+    solicitacao: solicitacaoFromApi(json),
+    avaliado: boolValue(json['avaliado']),
+  );
+}
+
+Mensagem mensagemFromApi(Map<String, dynamic> json) {
+  final autor = json['autor'];
+  return Mensagem(
+    id: intValue(json['id']),
+    solicitacaoId: intValue(json['solicitacaoId']),
+    remetenteId: autor is Map<String, dynamic> ? intValue(autor['id']) : 0,
+    conteudo: stringValue(json['conteudo']),
+    lida: boolValue(json['lida'], fallback: true),
+    criadoEm: dateTimeValue(json['criadoEm']),
+  );
+}
+
+Usuario usuarioFromApi(Map<String, dynamic> json) {
+  return Usuario(
+    id: intValue(json['id']),
+    nome: stringValue(json['nome']),
+    email: stringValue(json['email']),
+    tipo: tipoUsuarioFromApi(stringValue(json['tipo'])),
+    telefone: nullableString(json['telefone']),
+    bairro: nullableString(json['bairroPrincipal'] ?? json['bairro']),
+  );
+}
+
 StatusSolicitacao statusSolicitacaoFromApi(String value) {
   return StatusSolicitacao.values.firstWhere(
     (status) => status.valorBanco == value,
     orElse: () => StatusSolicitacao.aguardandoResposta,
+  );
+}
+
+TipoUsuario tipoUsuarioFromApi(String value) {
+  return TipoUsuario.values.firstWhere(
+    (tipo) => tipo.valorBanco == value,
+    orElse: () => TipoUsuario.cliente,
   );
 }
 
@@ -115,6 +163,11 @@ bool boolValue(Object? value, {bool fallback = false}) {
 }
 
 String stringValue(Object? value) => value?.toString() ?? '';
+
+String? nullableString(Object? value) {
+  final text = stringValue(value).trim();
+  return text.isEmpty ? null : text;
+}
 
 DateTime dateValue(Object? value) {
   final text = stringValue(value);

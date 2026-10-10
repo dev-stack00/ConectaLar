@@ -5,6 +5,8 @@ import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/mensagem.dart';
 import '../../models/solicitacao.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 
 class ConversaPage extends StatefulWidget {
@@ -16,6 +18,9 @@ class ConversaPage extends StatefulWidget {
 
 class _ConversaPageState extends State<ConversaPage> {
   final _controller = TextEditingController();
+  Future<_ConversaData?>? _dataFuture;
+  int? _solicitacaoAtual;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -30,60 +35,128 @@ class _ConversaPageState extends State<ConversaPage> {
     return null;
   }
 
-  void _enviar(int solicitacaoId) {
-    ConectaLarMockStore.instance.enviarMensagem(
-      solicitacaoId: solicitacaoId,
-      conteudo: _controller.text,
+  Future<_ConversaData?> _carregarConversa(int? solicitacaoId) async {
+    if (solicitacaoId == null) return null;
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      final store = ConectaLarMockStore.instance;
+      final atendimento = store.atendimentoPorId(solicitacaoId);
+      if (atendimento == null) return null;
+      return _ConversaData(
+        atendimento: atendimento,
+        mensagens: store.mensagensDaSolicitacao(solicitacaoId),
+        usuarioAtualId: store.usuarioAtual.id,
+      );
+    }
+
+    final responses = await Future.wait([
+      services.servicos.obter(solicitacaoId),
+      services.mensagens.listar(solicitacaoId),
+    ]);
+    final solicitacao = responses[0]['solicitacao'];
+    if (solicitacao is! Map<String, dynamic>) return null;
+
+    return _ConversaData(
+      atendimento: atendimentoResumoFromApi(solicitacao),
+      mensagens: listFromApi(responses[1]['mensagens'], mensagemFromApi),
+      usuarioAtualId: intValue(services.auth.usuarioAtual?['id']),
     );
-    _controller.clear();
+  }
+
+  Future<void> _enviar(int solicitacaoId) async {
+    final texto = _controller.text.trim();
+    if (texto.isEmpty || _enviando) return;
+
+    setState(() => _enviando = true);
+    try {
+      if (AppServices.instance.auth.autenticado) {
+        await AppServices.instance.mensagens.enviar(
+          solicitacaoId: solicitacaoId,
+          texto: texto,
+        );
+      } else {
+        ConectaLarMockStore.instance.enviarMensagem(
+          solicitacaoId: solicitacaoId,
+          conteudo: texto,
+        );
+      }
+      _controller.clear();
+      setState(() => _dataFuture = _carregarConversa(solicitacaoId));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
+      );
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final store = ConectaLarMockStore.instance;
     final solicitacaoId = _solicitacaoId(context);
+    if (_dataFuture == null || _solicitacaoAtual != solicitacaoId) {
+      _solicitacaoAtual = solicitacaoId;
+      _dataFuture = _carregarConversa(solicitacaoId);
+    }
 
     return Scaffold(
       appBar: const AppBarCustom(title: 'Conversa'),
       backgroundColor: AppColors.fundo,
       body: AnimatedBuilder(
         animation: store,
-        builder: (context, _) {
-          final atendimento = solicitacaoId == null
-              ? null
-              : store.atendimentoPorId(solicitacaoId);
-          if (atendimento == null) return const _ConversaIndisponivel();
+        builder: (context, _) => FutureBuilder<_ConversaData?>(
+          future: _dataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final data = snapshot.data;
+            if (data == null) return const _ConversaIndisponivel();
 
-          final mensagens = store.mensagensDaSolicitacao(solicitacaoId!);
-          return Column(
-            children: [
-              _ContextoServico(atendimento: atendimento),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  children: [
-                    for (final mensagem in mensagens)
-                      _MensagemBolha(
-                        mensagem: mensagem,
-                        enviadaPorMim:
-                            mensagem.remetenteId == store.usuarioAtual.id,
-                      ),
-                    if (atendimento.solicitacao.status ==
-                        StatusSolicitacao.aceitaAgendada)
-                      _PropostaAgendada(atendimento: atendimento),
-                  ],
+            return Column(
+              children: [
+                _ContextoServico(atendimento: data.atendimento),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    children: [
+                      for (final mensagem in data.mensagens)
+                        _MensagemBolha(
+                          mensagem: mensagem,
+                          enviadaPorMim:
+                              mensagem.remetenteId == data.usuarioAtualId,
+                        ),
+                      if (data.atendimento.solicitacao.status ==
+                          StatusSolicitacao.aceitaAgendada)
+                        _PropostaAgendada(atendimento: data.atendimento),
+                    ],
+                  ),
                 ),
-              ),
-              _CampoMensagem(
-                controller: _controller,
-                onEnviar: () => _enviar(solicitacaoId),
-              ),
-            ],
-          );
-        },
+                _CampoMensagem(
+                  controller: _controller,
+                  onEnviar: _enviando ? null : () => _enviar(solicitacaoId!),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+class _ConversaData {
+  const _ConversaData({
+    required this.atendimento,
+    required this.mensagens,
+    required this.usuarioAtualId,
+  });
+
+  final AtendimentoResumo atendimento;
+  final List<Mensagem> mensagens;
+  final int usuarioAtualId;
 }
 
 class _ContextoServico extends StatelessWidget {
@@ -213,7 +286,7 @@ class _CampoMensagem extends StatelessWidget {
   const _CampoMensagem({required this.controller, required this.onEnviar});
 
   final TextEditingController controller;
-  final VoidCallback onEnviar;
+  final VoidCallback? onEnviar;
 
   @override
   Widget build(BuildContext context) {

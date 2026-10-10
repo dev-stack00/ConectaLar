@@ -4,6 +4,8 @@ import '../../app/routes.dart';
 import '../../app/theme.dart';
 import '../../data/conectalar_mock_store.dart';
 import '../../models/solicitacao.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
 import '../../widgets/app_bar_custom.dart';
 
 class MeusServicosPage extends StatefulWidget {
@@ -15,6 +17,23 @@ class MeusServicosPage extends StatefulWidget {
 
 class _MeusServicosPageState extends State<MeusServicosPage> {
   _FiltroServicos _filtro = _FiltroServicos.todos;
+  late Future<List<AtendimentoResumo>> _servicosFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _servicosFuture = _carregarServicos();
+  }
+
+  Future<List<AtendimentoResumo>> _carregarServicos() async {
+    final services = AppServices.instance;
+    if (!services.auth.autenticado) {
+      return ConectaLarMockStore.instance.servicos;
+    }
+
+    final response = await services.servicos.minhas();
+    return listFromApi(response['solicitacoes'], atendimentoResumoFromApi);
+  }
 
   List<AtendimentoResumo> _servicosFiltrados(List<AtendimentoResumo> servicos) {
     return servicos.where((servico) {
@@ -39,45 +58,75 @@ class _MeusServicosPageState extends State<MeusServicosPage> {
       backgroundColor: AppColors.fundo,
       body: AnimatedBuilder(
         animation: store,
-        builder: (context, _) {
-          final servicos = _servicosFiltrados(store.servicos);
-          return SafeArea(
-            top: false,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              children: [
-                const _AvisoStatus(),
-                const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final filtro in _FiltroServicos.values) ...[
-                        _FiltroChip(
-                          filtro: filtro,
-                          selecionado: filtro == _filtro,
-                          onSelected: () => setState(() => _filtro = filtro),
-                        ),
-                        const SizedBox(width: 8),
+        builder: (context, _) => FutureBuilder<List<AtendimentoResumo>>(
+          future: _servicosFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const _ErroServicos();
+            }
+            final servicos = _servicosFiltrados(snapshot.data ?? const []);
+            return SafeArea(
+              top: false,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                children: [
+                  const _AvisoStatus(),
+                  const SizedBox(height: 16),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final filtro in _FiltroServicos.values) ...[
+                          _FiltroChip(
+                            filtro: filtro,
+                            selecionado: filtro == _filtro,
+                            onSelected: () => setState(() => _filtro = filtro),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                if (servicos.isEmpty)
-                  const _ListaVazia()
-                else
-                  for (final servico in servicos) ...[
-                    _ServicoCard(
-                      resumo: servico,
-                      onTap: () => _abrirDetalhes(servico.solicitacao.id),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-              ],
-            ),
-          );
-        },
+                  ),
+                  const SizedBox(height: 18),
+                  if (servicos.isEmpty)
+                    const _ListaVazia()
+                  else
+                    for (final servico in servicos) ...[
+                      _ServicoCard(
+                        resumo: servico,
+                        onTap: () => _abrirDetalhes(servico.solicitacao.id),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ErroServicos extends StatelessWidget {
+  const _ErroServicos();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'Não foi possível carregar seus serviços agora.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textoSuave,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
