@@ -141,38 +141,63 @@ class _BuscaPageState extends State<BuscaPage> {
             _profissionais = snapshot.data!.featuredProfessionals;
           }
           final resultados = _resultados;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-            children: [
-              _FiltrosBusca(
-                termoController: _termoController,
-                bairroController: _bairroController,
-                categorias: _categorias,
-                categoriaSelecionada: _categoriaSelecionada,
-                onTextoAlterado: (_) => setState(() {}),
-                onCategoriaSelecionada: _selecionarCategoria,
-                onLimparFiltros: _temFiltros ? _limparFiltros : null,
-              ),
-              const SizedBox(height: 22),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(child: CircularProgressIndicator())
-              else ...[
-                _CabecalhoResultados(total: resultados.length),
-                const SizedBox(height: 12),
-                if (resultados.isEmpty)
-                  const _EstadoVazioBusca()
-                else
-                  ...resultados.map(
-                    (profissional) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: ProfissionalCard(
-                        profissional: profissional,
-                        onTap: () => _abrirProfissional(profissional),
-                      ),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = constraints.maxWidth > 760
+                  ? (constraints.maxWidth - 720) / 2
+                  : 20.0;
+              return ListView(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  20,
+                  horizontalPadding,
+                  28,
+                ),
+                children: [
+                  Text(
+                    'Encontre profissionais',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AppColors.texto,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-              ],
-            ],
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Pesquise por serviço, profissional ou bairro.',
+                    style: TextStyle(color: AppColors.textoSuave, height: 1.35),
+                  ),
+                  const SizedBox(height: 18),
+                  _FiltrosBusca(
+                    termoController: _termoController,
+                    bairroController: _bairroController,
+                    categorias: _categorias,
+                    categoriaSelecionada: _categoriaSelecionada,
+                    onTextoAlterado: (_) => setState(() {}),
+                    onCategoriaSelecionada: _selecionarCategoria,
+                    onLimparFiltros: _temFiltros ? _limparFiltros : null,
+                  ),
+                  const SizedBox(height: 22),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Center(child: CircularProgressIndicator())
+                  else ...[
+                    _CabecalhoResultados(total: resultados.length),
+                    const SizedBox(height: 12),
+                    if (resultados.isEmpty)
+                      const _EstadoVazioBusca()
+                    else
+                      ...resultados.map(
+                        (profissional) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ProfissionalCard(
+                            profissional: profissional,
+                            onTap: () => _abrirProfissional(profissional),
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              );
+            },
           );
         },
       ),
