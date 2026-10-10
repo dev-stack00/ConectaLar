@@ -211,16 +211,20 @@ void main() {
     expect(find.textContaining('pagamento fora do app'), findsOneWidget);
   });
 
-  testWidgets('a Home cabe em uma tela estreita sem overflow', (tester) async {
+  testWidgets('a Home se adapta sem overflow em vários tamanhos', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(320, 568);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const ConectaLarApp());
-    await tester.pumpAndSettle();
+    for (final width in [320.0, 360.0, 390.0, 412.0, 1280.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      await tester.pumpWidget(const ConectaLarApp());
+      await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
+      expect(tester.takeException(), isNull, reason: 'Largura: $width px');
+    }
   });
 
   testWidgets('a Home apresenta um estado vazio sem dados', (tester) async {

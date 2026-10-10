@@ -309,7 +309,8 @@ class _HomeHero extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 360;
-        final imageWidth = compact ? 158.0 : 190.0;
+        final imageWidth = (constraints.maxWidth * 0.68).clamp(230.0, 280.0);
+        final imageHeight = imageWidth * 2 / 3;
         return SizedBox(
           height: 306,
           child: Stack(
@@ -339,14 +340,14 @@ class _HomeHero extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: compact ? -18 : -10,
-                bottom: 40,
+                right: compact ? -10 : -18,
+                bottom: 26,
                 child: Image.asset(
-                  'assets/images/home/hero_house.png',
+                  'assets/images/home/hero_house_cutout.png',
                   width: imageWidth,
-                  height: 172,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.centerRight,
+                  height: imageHeight,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomRight,
                 ),
               ),
               Positioned(
