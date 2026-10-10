@@ -110,7 +110,6 @@ class _CadastroPageState extends State<CadastroPage> {
                         controller: _nomeController,
                         decoration: const InputDecoration(
                           labelText: 'Nome completo',
-                          border: OutlineInputBorder(),
                         ),
                         textInputAction: TextInputAction.next,
                         validator: validarCampoObrigatorio,
@@ -119,10 +118,7 @@ class _CadastroPageState extends State<CadastroPage> {
                       TextFormField(
                         key: const ValueKey('cadastro-email'),
                         controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'E-mail',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'E-mail'),
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         validator: validarEmail,
@@ -133,7 +129,6 @@ class _CadastroPageState extends State<CadastroPage> {
                         controller: _telefoneController,
                         decoration: const InputDecoration(
                           labelText: 'Telefone',
-                          border: OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
@@ -144,10 +139,7 @@ class _CadastroPageState extends State<CadastroPage> {
                         key: const ValueKey('cadastro-senha'),
                         controller: _senhaController,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Senha',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Senha'),
                         validator: validarSenha,
                       ),
                       const SizedBox(height: 12),
@@ -157,7 +149,6 @@ class _CadastroPageState extends State<CadastroPage> {
                         obscureText: true,
                         decoration: const InputDecoration(
                           labelText: 'Confirmar senha',
-                          border: OutlineInputBorder(),
                         ),
                         validator: (valor) {
                           final erro = validarSenha(valor);

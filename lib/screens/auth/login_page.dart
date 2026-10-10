@@ -72,7 +72,6 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: const InputDecoration(
                           labelText: 'E-mail',
                           prefixIcon: Icon(Icons.mail_outline),
-                          border: OutlineInputBorder(),
                         ),
                         validator: validarEmail,
                       ),
@@ -84,7 +83,6 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Senha',
                           prefixIcon: const Icon(Icons.lock_outline),
-                          border: const OutlineInputBorder(),
                           suffixIcon: IconButton(
                             tooltip: _ocultarSenha
                                 ? 'Mostrar senha'
