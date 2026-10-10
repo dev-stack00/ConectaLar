@@ -15,6 +15,7 @@ import { ProfissionalPerfilEntity } from './entities/profissional-perfil.entity.
 import { ProfissionalServicoEntity } from './entities/profissional-servico.entity.js';
 import { SolicitacaoEntity } from './entities/solicitacao.entity.js';
 import { TermoAceiteEntity } from './entities/termo-aceite.entity.js';
+import { UsuarioSenhaResetEntity } from './entities/usuario-senha-reset.entity.js';
 import { UsuarioEntity } from './entities/usuario.entity.js';
 
 function requiredDatabaseValue(name: string): string {
@@ -94,6 +95,7 @@ export function databaseRuntimeOptions(): DataSourceOptions {
       DenunciaEntity,
       AdminAuditoriaEntity,
       TermoAceiteEntity,
+      UsuarioSenhaResetEntity,
     ],
   };
 }

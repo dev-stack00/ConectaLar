@@ -33,7 +33,11 @@ export class AuthGuard implements CanActivate {
     const usuario = await this.usuarios.findOne({
       where: { id: payload.sub, ativo: true },
     });
-    if (usuario === null || usuario.tipo !== payload.tipo) {
+    if (
+      usuario === null ||
+      usuario.tipo !== payload.tipo ||
+      usuario.tokenVersion !== payload.tv
+    ) {
       throw unauthorized();
     }
 
