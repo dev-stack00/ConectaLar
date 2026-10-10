@@ -196,7 +196,7 @@ class _HomeContentView extends StatelessWidget {
                         270.0,
                       );
                       return SizedBox(
-                        height: 276,
+                        height: 320,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: content.featuredProfessionals.length,
@@ -683,7 +683,7 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 118,
+              height: 154,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -692,6 +692,14 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                       image,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
+                      errorBuilder: (_, _, _) => const ColoredBox(
+                        color: AppColors.verdeClaro,
+                        child: Icon(
+                          Icons.person_outline_rounded,
+                          color: AppColors.verde,
+                          size: 50,
+                        ),
+                      ),
                     )
                   else
                     ColoredBox(
@@ -768,68 +776,42 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                padding: const EdgeInsets.fromLTRB(13, 10, 13, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      professional.nome,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.texto,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 17,
-                          backgroundColor: AppColors.verdeClaro,
-                          backgroundImage: image == null
-                              ? null
-                              : AssetImage(image),
-                          child: image == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 18,
-                                  color: AppColors.verde,
-                                )
-                              : null,
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 15,
+                          color: AppColors.estrela,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                professional.nome,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.texto,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.star_rounded,
-                                    size: 14,
-                                    color: AppColors.estrela,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    professional.notaMedia == null
-                                        ? 'Novo profissional'
-                                        : '${professional.notaMedia!.toStringAsFixed(1).replaceAll('.', ',')} (${professional.quantidadeAvaliacoes ?? 0})',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.textoSuave,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        const SizedBox(width: 3),
+                        Text(
+                          professional.notaMedia == null
+                              ? 'Novo profissional'
+                              : '${professional.notaMedia!.toStringAsFixed(1).replaceAll('.', ',')} (${professional.quantidadeAvaliacoes ?? 0})',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textoSuave,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
                         const Icon(
@@ -851,16 +833,45 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Serviços: ${professional.servicos.isEmpty ? professional.descricao : professional.servicos.join(', ')}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textoSuave,
+                    const SizedBox(height: 7),
+                    if (professional.servicos.isNotEmpty)
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        children: [
+                          for (final servico in professional.servicos.take(2))
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.verdeClaro,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                'Serviço: $servico',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.verdeEscuro,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    else
+                      Text(
+                        professional.descricao,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textoSuave,
+                        ),
                       ),
-                    ),
                     const Spacer(),
                     Text(
                       price == null
@@ -870,7 +881,7 @@ class _FeaturedProfessionalCardState extends State<_FeaturedProfessionalCard> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF15935F),
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),

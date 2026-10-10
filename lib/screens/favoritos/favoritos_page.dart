@@ -68,27 +68,20 @@ class _FavoritoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        ProfissionalCard(
-          profissional: profissional,
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.perfilProfissional,
-            arguments: profissional,
-          ),
-        ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: IconButton.filledTonal(
-            key: ValueKey('favorito-remover-${profissional.id}'),
-            tooltip: 'Remover dos favoritos',
-            onPressed: () => store.toggleFavorito(profissional.id),
-            icon: const Icon(Icons.favorite, color: Color(0xFFC53030)),
-          ),
-        ),
-      ],
+    return ProfissionalCard(
+      profissional: profissional,
+      onTap: () => Navigator.pushNamed(
+        context,
+        AppRoutes.perfilProfissional,
+        arguments: profissional,
+      ),
+      trailingAction: IconButton.filledTonal(
+        key: ValueKey('favorito-remover-${profissional.id}'),
+        tooltip: 'Remover dos favoritos',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => store.toggleFavorito(profissional.id),
+        icon: const Icon(Icons.favorite, color: Color(0xFFC53030)),
+      ),
     );
   }
 }
