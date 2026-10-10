@@ -175,27 +175,13 @@ export class ProfissionaisService {
   }
 
   async definirVerificacao(id: number, body: unknown) {
-    const value = objectBody(body);
-    if (typeof value.verificado !== 'boolean') {
-      throw badRequest('VERIFICACAO_INVALIDA');
-    }
-
-    const perfil = await this.perfis.findOne({
-      where: { id },
-      relations: { usuario: true, servicos: { categoria: true } },
+    void id;
+    void body;
+    throw new BadRequestException({
+      code: 'VERIFICACAO_DOCUMENTAL_OBRIGATORIA',
+      message:
+        'Use a analise documental em /documentos-verificacao/:id/analisar.',
     });
-    if (perfil === null) {
-      throw new NotFoundException({
-        code: 'PROFISSIONAL_NAO_ENCONTRADO',
-        message: 'Profissional nao encontrado.',
-      });
-    }
-
-    perfil.verificado = value.verificado;
-    const saved = await this.perfis.save(perfil);
-    saved.usuario = perfil.usuario;
-    saved.servicos = perfil.servicos;
-    return { profissional: perfilPublico(saved) };
   }
 }
 

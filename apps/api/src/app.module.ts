@@ -14,6 +14,7 @@ import { NotificacoesModule } from './notificacoes/notificacoes.module.js';
 import { HealthController } from './health/health.controller.js';
 import { ProfissionaisModule } from './profissionais/profissionais.module.js';
 import { SolicitacoesModule } from './solicitacoes/solicitacoes.module.js';
+import { VerificacaoModule } from './verificacao/verificacao.module.js';
 
 const runtimeImports = isAuthRuntimeConfigured()
   ? [
@@ -27,6 +28,7 @@ const runtimeImports = isAuthRuntimeConfigured()
       ClientesModule,
       DisponibilidadeModule,
       NotificacoesModule,
+      VerificacaoModule,
     ]
   : [];
 

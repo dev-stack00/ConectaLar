@@ -6,4 +6,6 @@ export enum NotificacaoTipo {
   SolicitacaoConcluida = 'solicitacao_concluida',
   MensagemRecebida = 'mensagem_recebida',
   AvaliacaoRecebida = 'avaliacao_recebida',
+  DocumentoAprovado = 'documento_aprovado',
+  DocumentoRejeitado = 'documento_rejeitado',
 }
