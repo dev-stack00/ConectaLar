@@ -1,5 +1,355 @@
-import '../../widgets/page_scaffold.dart';
+import 'package:flutter/material.dart';
 
-class MeusServicosPage extends PageScaffold {
-  const MeusServicosPage({super.key}) : super(title: 'Meus serviços');
+import '../../app/routes.dart';
+import '../../app/theme.dart';
+import '../../data/conectalar_mock_store.dart';
+import '../../models/solicitacao.dart';
+import '../../widgets/app_bar_custom.dart';
+
+class MeusServicosPage extends StatefulWidget {
+  const MeusServicosPage({super.key});
+
+  @override
+  State<MeusServicosPage> createState() => _MeusServicosPageState();
+}
+
+class _MeusServicosPageState extends State<MeusServicosPage> {
+  _FiltroServicos _filtro = _FiltroServicos.todos;
+
+  List<AtendimentoResumo> _servicosFiltrados(List<AtendimentoResumo> servicos) {
+    return servicos.where((servico) {
+      return _filtro.statuses == null ||
+          _filtro.statuses!.contains(servico.solicitacao.status);
+    }).toList();
+  }
+
+  void _abrirDetalhes(int solicitacaoId) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.detalhesServico,
+      arguments: solicitacaoId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = ConectaLarMockStore.instance;
+    return Scaffold(
+      appBar: const AppBarCustom(title: 'Meus serviços'),
+      backgroundColor: AppColors.fundo,
+      body: AnimatedBuilder(
+        animation: store,
+        builder: (context, _) {
+          final servicos = _servicosFiltrados(store.servicos);
+          return SafeArea(
+            top: false,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                const _AvisoStatus(),
+                const SizedBox(height: 16),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final filtro in _FiltroServicos.values) ...[
+                        _FiltroChip(
+                          filtro: filtro,
+                          selecionado: filtro == _filtro,
+                          onSelected: () => setState(() => _filtro = filtro),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                if (servicos.isEmpty)
+                  const _ListaVazia()
+                else
+                  for (final servico in servicos) ...[
+                    _ServicoCard(
+                      resumo: servico,
+                      onTap: () => _abrirDetalhes(servico.solicitacao.id),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AvisoStatus extends StatelessWidget {
+  const _AvisoStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.verdeClaro,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: AppColors.verdeEscuro),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Pedidos enviados aguardam resposta. O agendamento só existe '
+              'quando o profissional aceita a solicitação.',
+              style: TextStyle(
+                color: AppColors.texto,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FiltroChip extends StatelessWidget {
+  const _FiltroChip({
+    required this.filtro,
+    required this.selecionado,
+    required this.onSelected,
+  });
+
+  final _FiltroServicos filtro;
+  final bool selecionado;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      key: ValueKey('servicos-filtro-${filtro.key}'),
+      label: Text(filtro.label),
+      selected: selecionado,
+      selectedColor: AppColors.verdeClaro,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        color: selecionado ? AppColors.verdeEscuro : AppColors.texto,
+        fontWeight: FontWeight.w700,
+      ),
+      side: BorderSide(
+        color: selecionado ? AppColors.verde : const Color(0xFFE0E7E3),
+      ),
+      showCheckmark: false,
+    );
+  }
+}
+
+class _ServicoCard extends StatelessWidget {
+  const _ServicoCard({required this.resumo, required this.onTap});
+
+  final AtendimentoResumo resumo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final solicitacao = resumo.solicitacao;
+    final data = solicitacao.dataServico;
+    final dataFormatada =
+        '${data.day.toString().padLeft(2, '0')}/'
+        '${data.month.toString().padLeft(2, '0')}/${data.year}';
+
+    return Card(
+      child: InkWell(
+        key: ValueKey('servico-${solicitacao.id}'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          resumo.categoria,
+                          style: const TextStyle(
+                            color: AppColors.textoSuave,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          resumo.profissional,
+                          style: const TextStyle(
+                            color: AppColors.texto,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _StatusPill(status: solicitacao.status),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                solicitacao.descricao,
+                style: const TextStyle(color: AppColors.texto, height: 1.35),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  _ResumoIcone(
+                    icon: Icons.event_outlined,
+                    text: '$dataFormatada às ${solicitacao.horarioServico}',
+                  ),
+                  _ResumoIcone(
+                    icon: Icons.payments_outlined,
+                    text:
+                        'A partir de R\$ ${solicitacao.precoInicial.toStringAsFixed(0)}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    if (solicitacao.status ==
+                            StatusSolicitacao.aguardandoResposta ||
+                        solicitacao.status == StatusSolicitacao.aceitaAgendada)
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.conversa,
+                          arguments: solicitacao.id,
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: const Text('Conversar'),
+                      ),
+                    TextButton.icon(
+                      onPressed: onTap,
+                      icon: const Icon(Icons.chevron_right),
+                      label: const Text('Ver detalhes'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final StatusSolicitacao status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      StatusSolicitacao.aguardandoResposta => const Color(0xFFB7791F),
+      StatusSolicitacao.aceitaAgendada => AppColors.verde,
+      StatusSolicitacao.recusada => const Color(0xFFC53030),
+      StatusSolicitacao.cancelada => AppColors.textoSuave,
+      StatusSolicitacao.conclusaoConfirmada => AppColors.verdeEscuro,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.valorBanco,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ResumoIcone extends StatelessWidget {
+  const _ResumoIcone({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: AppColors.verdeEscuro),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.textoSuave,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ListaVazia extends StatelessWidget {
+  const _ListaVazia();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 48),
+      child: Center(
+        child: Text(
+          'Nenhum serviço encontrado para este filtro.',
+          style: TextStyle(
+            color: AppColors.textoSuave,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _FiltroServicos {
+  todos('todos', 'Todos', null),
+  aguardando('aguardando', 'Aguardando', [
+    StatusSolicitacao.aguardandoResposta,
+  ]),
+  agendados('agendados', 'Agendados', [StatusSolicitacao.aceitaAgendada]),
+  historico('historico', 'Histórico', [
+    StatusSolicitacao.recusada,
+    StatusSolicitacao.cancelada,
+    StatusSolicitacao.conclusaoConfirmada,
+  ]);
+
+  const _FiltroServicos(this.key, this.label, this.statuses);
+
+  final String key;
+  final String label;
+  final List<StatusSolicitacao>? statuses;
 }

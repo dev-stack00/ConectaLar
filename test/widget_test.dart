@@ -32,13 +32,124 @@ void main() {
     expect(find.text('Buscar profissionais'), findsOneWidget);
   });
 
+  testWidgets('a categoria da Home abre a busca filtrada', (tester) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Limpeza'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buscar profissionais'), findsOneWidget);
+    expect(find.text('Ana Souza'), findsOneWidget);
+    expect(find.text('Carlos Silva'), findsNothing);
+  });
+
+  testWidgets('a busca filtra profissionais por termo e bairro', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('home-search')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('busca-termo')),
+      'limpeza',
+    );
+    await tester.enterText(find.byKey(const ValueKey('busca-bairro')), 'vila');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana Souza'), findsOneWidget);
+    expect(find.text('Carlos Silva'), findsNothing);
+  });
+
+  testWidgets('o perfil profissional mostra detalhes e abre solicitação', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Carlos Silva'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carlos Silva'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perfil profissional'), findsOneWidget);
+    expect(find.text('Eletricista residencial'), findsOneWidget);
+    expect(find.text('Serviços oferecidos'), findsOneWidget);
+    expect(find.text('Antes de solicitar'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('perfil-solicitar-servico')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solicitar serviço'), findsOneWidget);
+    expect(find.text('Dados da solicitação'), findsOneWidget);
+    expect(find.textContaining('O envio não confirma'), findsOneWidget);
+  });
+
+  testWidgets('a solicitação enviada inicia aguardando resposta', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Carlos Silva'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carlos Silva'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('perfil-solicitar-servico')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('solicitar-bairro')),
+      'Jardim das Flores',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('solicitar-data')),
+      '15/10/2026',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('solicitar-horario')),
+      '14:00',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('solicitar-descricao')),
+      'Instalar chuveiro no banheiro social.',
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('solicitar-enviar')),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('solicitar-enviar')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solicitação enviada'), findsOneWidget);
+    expect(find.text('Status inicial: aguardando_resposta'), findsOneWidget);
+    expect(
+      find.textContaining('Ainda não há agendamento confirmado'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a navegação inferior abre as telas principais', (tester) async {
     await tester.pumpWidget(const ConectaLarApp());
     await tester.pumpAndSettle();
 
     const destinations = [
       (Icons.search_outlined, 'Buscar profissionais'),
-      (Icons.favorite_border, 'Favoritos'),
+      (Icons.favorite_border, 'Meus favoritos'),
       (Icons.calendar_month_outlined, 'Meus serviços'),
       (Icons.person_outline, 'Meu perfil'),
     ];
@@ -52,6 +163,52 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('Meus serviços filtra pelos estados oficiais', (tester) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.calendar_month_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Meus serviços'), findsOneWidget);
+    expect(find.text('aguardando_resposta'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.byKey(const ValueKey('servicos-filtro-agendados')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('aceita_agendada'), findsOneWidget);
+    expect(find.text('aguardando_resposta'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('servicos-filtro-aguardando')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('aguardando_resposta'), findsAtLeastNWidgets(1));
+    expect(find.text('aceita_agendada'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('servicos-filtro-historico')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('conclusao_confirmada'), findsOneWidget);
+    expect(find.text('recusada'), findsOneWidget);
+    expect(find.text('aguardando_resposta'), findsNothing);
+  });
+
+  testWidgets('Meus serviços abre detalhes de uma solicitação', (tester) async {
+    await tester.pumpWidget(const ConectaLarApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.calendar_month_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('servico-1001')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detalhes do serviço'), findsOneWidget);
+    expect(find.text('Solicitação #1001'), findsOneWidget);
+    expect(find.text('aguardando_resposta'), findsOneWidget);
+    expect(find.textContaining('pagamento fora do app'), findsOneWidget);
   });
 
   testWidgets('a Home cabe em uma tela estreita sem overflow', (tester) async {

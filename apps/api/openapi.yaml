@@ -2,28 +2,280 @@ openapi: 3.1.0
 info:
   title: ConectaLar API
   version: 0.1.0
-  description: Contrato inicial da fundação técnica. Rotas de negócio serão adicionadas após validação dos requisitos e decisões P/Q.
+  description: Initial technical contract for health and authentication groundwork.
 paths:
   /health:
     get:
       operationId: getHealth
-      summary: Verifica se o processo HTTP está respondendo
+      summary: Checks whether the HTTP process is responding
       tags:
         - System
       responses:
         '200':
-          description: Processo HTTP disponível
+          description: HTTP process available
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatus'
         default:
-          description: Erro HTTP com conteúdo interno omitido
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/cadastro:
+    post:
+      operationId: postAuthCadastro
+      summary: Creates a public client, professional, or company account
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCadastroRequest'
+      responses:
+        '201':
+          description: Account created and access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Account could not be created with these data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/login:
+    post:
+      operationId: postAuthLogin
+      summary: Authenticates an existing account
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '201':
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /profissionais:
+    get:
+      operationId: getProfissionais
+      summary: Lists active public professional profiles
+      tags:
+        - Profissionais
+      parameters:
+        - name: termo
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 80
+        - name: bairro
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: Public professional profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - profissionais
+                properties:
+                  profissionais:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProfissionalPublico'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /profissionais/me:
+    get:
+      operationId: getMeuPerfilProfissional
+      summary: Gets the authenticated professional or company profile
+      tags:
+        - Profissionais
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated professional profile or null
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - profissional
+                properties:
+                  profissional:
+                    anyOf:
+                      - $ref: '#/components/schemas/ProfissionalPublico'
+                      - type: 'null'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      operationId: putMeuPerfilProfissional
+      summary: Creates or updates the authenticated professional or company profile
+      tags:
+        - Profissionais
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfissionalUpsertRequest'
+      responses:
+        '200':
+          description: Saved professional profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - profissional
+                properties:
+                  profissional:
+                    $ref: '#/components/schemas/ProfissionalPublico'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /profissionais/{id}:
+    get:
+      operationId: getProfissionalById
+      summary: Gets one active public professional profile
+      tags:
+        - Profissionais
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Public professional profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - profissional
+                properties:
+                  profissional:
+                    $ref: '#/components/schemas/ProfissionalPublico'
+        default:
+          description: HTTP error with internal details omitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /profissionais/{id}/verificacao:
+    patch:
+      operationId: patchProfissionalVerificacao
+      summary: Updates the verification seal through an administrative account
+      tags:
+        - Profissionais
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - verificado
+              properties:
+                verificado:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated professional profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - profissional
+                properties:
+                  profissional:
+                    $ref: '#/components/schemas/ProfissionalPublico'
+        default:
+          description: HTTP error with internal details omitted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthStatus:
       type: object
@@ -34,6 +286,202 @@ components:
         status:
           type: string
           const: ok
+    AuthCadastroRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - nome
+        - email
+        - senha
+        - tipo
+      properties:
+        nome:
+          type: string
+          minLength: 3
+          maxLength: 140
+        email:
+          type: string
+          format: email
+          maxLength: 180
+        telefone:
+          type: string
+          maxLength: 32
+        senha:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+        tipo:
+          $ref: '#/components/schemas/UsuarioTipoPublico'
+    AuthLoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - senha
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          writeOnly: true
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - usuario
+        - token
+      properties:
+        usuario:
+          $ref: '#/components/schemas/UsuarioPublico'
+        token:
+          $ref: '#/components/schemas/AuthToken'
+    UsuarioPublico:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - email
+        - telefone
+        - tipo
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type:
+            - string
+            - 'null'
+        tipo:
+          $ref: '#/components/schemas/UsuarioTipo'
+    UsuarioTipoPublico:
+      type: string
+      enum:
+        - cliente
+        - profissional
+        - empresa
+    UsuarioTipo:
+      type: string
+      enum:
+        - cliente
+        - profissional
+        - empresa
+        - administrador
+    AuthToken:
+      type: object
+      additionalProperties: false
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          const: 3600
+    ProfissionalUpsertRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - descricao
+        - bairro
+        - servicos
+      properties:
+        descricao:
+          type: string
+          minLength: 20
+          maxLength: 280
+        bairro:
+          type: string
+          minLength: 2
+          maxLength: 120
+        precoInicial:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        servicos:
+          type: array
+          maxItems: 12
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - nome
+            properties:
+              nome:
+                type: string
+                minLength: 2
+                maxLength: 90
+              precoInicial:
+                type:
+                  - number
+                  - 'null'
+                minimum: 0
+    ProfissionalPublico:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - usuarioId
+        - nome
+        - tipo
+        - descricao
+        - bairro
+        - precoInicial
+        - verificado
+        - servicos
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        usuarioId:
+          type: integer
+          minimum: 1
+        nome:
+          type: string
+        tipo:
+          $ref: '#/components/schemas/UsuarioTipo'
+        descricao:
+          type: string
+        bairro:
+          type: string
+        precoInicial:
+          type:
+            - number
+            - 'null'
+        verificado:
+          type: boolean
+        servicos:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - nome
+              - precoInicial
+            properties:
+              id:
+                type: integer
+                minimum: 1
+              nome:
+                type: string
+              precoInicial:
+                type:
+                  - number
+                  - 'null'
     ApiError:
       type: object
       additionalProperties: false
@@ -47,6 +495,3 @@ components:
           maximum: 599
         message:
           type: string
-          enum:
-            - Request could not be processed
-            - Internal server error

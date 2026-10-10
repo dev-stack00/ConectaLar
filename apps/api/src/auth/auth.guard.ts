@@ -1,0 +1,62 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UsuarioEntity } from '../database/entities/usuario.entity.js';
+import { RequestWithUser } from './authenticated-user.js';
+import { TokenService } from './token.service.js';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  constructor(
+    private readonly tokenService: TokenService,
+    @InjectRepository(UsuarioEntity)
+    private readonly usuarios: Repository<UsuarioEntity>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const token = bearerToken(request.headers.authorization);
+    if (token === null) {
+      throw unauthorized();
+    }
+
+    const payload = this.tokenService.verifyAccessToken(token);
+    if (payload === null) {
+      throw unauthorized();
+    }
+
+    const usuario = await this.usuarios.findOne({
+      where: { id: payload.sub, ativo: true },
+    });
+    if (usuario === null || usuario.tipo !== payload.tipo) {
+      throw unauthorized();
+    }
+
+    request.user = { id: usuario.id, tipo: usuario.tipo };
+    return true;
+  }
+}
+
+function bearerToken(header: string | string[] | undefined): string | null {
+  const value = Array.isArray(header) ? header[0] : header;
+  if (value === undefined) return null;
+
+  const [scheme, token] = value.split(' ');
+  if (scheme !== 'Bearer' || token === undefined || token.trim() === '') {
+    return null;
+  }
+
+  return token;
+}
+
+function unauthorized(): UnauthorizedException {
+  return new UnauthorizedException({
+    code: 'NAO_AUTENTICADO',
+    message: 'Autenticacao obrigatoria.',
+  });
+}

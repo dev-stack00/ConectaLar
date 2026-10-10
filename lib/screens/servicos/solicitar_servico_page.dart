@@ -1,5 +1,481 @@
-import '../../widgets/page_scaffold.dart';
+import 'package:flutter/material.dart';
 
-class SolicitarServicoPage extends PageScaffold {
-  const SolicitarServicoPage({super.key}) : super(title: 'Solicitar serviço');
+import '../../app/routes.dart';
+import '../../app/theme.dart';
+import '../../data/conectalar_mock_store.dart';
+import '../../models/profissional.dart';
+import '../../utils/validators.dart';
+import '../../widgets/app_bar_custom.dart';
+
+class SolicitarServicoPage extends StatefulWidget {
+  const SolicitarServicoPage({super.key});
+
+  @override
+  State<SolicitarServicoPage> createState() => _SolicitarServicoPageState();
+}
+
+class _SolicitarServicoPageState extends State<SolicitarServicoPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _descricaoController = TextEditingController();
+  final _bairroController = TextEditingController();
+  final _dataController = TextEditingController();
+  final _horarioController = TextEditingController();
+
+  Profissional? _profissional;
+  String? _servicoSelecionado;
+  bool _argumentosLidos = false;
+  bool _solicitacaoEnviada = false;
+  int? _solicitacaoId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argumentosLidos) return;
+
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments is Profissional) {
+      _profissional = arguments;
+      _servicoSelecionado = arguments.servicos.isEmpty
+          ? arguments.descricao
+          : arguments.servicos.first;
+      _bairroController.text = arguments.bairro;
+    }
+    _argumentosLidos = true;
+  }
+
+  @override
+  void dispose() {
+    _descricaoController.dispose();
+    _bairroController.dispose();
+    _dataController.dispose();
+    _horarioController.dispose();
+    super.dispose();
+  }
+
+  void _enviarSolicitacao() {
+    if (!_formKey.currentState!.validate()) return;
+
+    final profissional = _profissional;
+    if (profissional == null) return;
+
+    final solicitacaoId = ConectaLarMockStore.instance.criarSolicitacao(
+      profissional: profissional,
+      servico: _servicoSelecionado ?? profissional.descricao,
+      descricao: _descricaoController.text,
+      bairro: _bairroController.text,
+      data: _parseData(_dataController.text) ?? DateTime.now(),
+      horario: _horarioController.text,
+    );
+
+    setState(() {
+      _solicitacaoEnviada = true;
+      _solicitacaoId = solicitacaoId;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profissional = _profissional;
+    return Scaffold(
+      backgroundColor: AppColors.fundo,
+      appBar: const AppBarCustom(title: 'Solicitar serviço'),
+      body: profissional == null
+          ? const _SolicitacaoIndisponivel()
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+              children: [
+                _ResumoProfissional(profissional: profissional),
+                const SizedBox(height: 14),
+                if (_solicitacaoEnviada)
+                  _SolicitacaoEnviada(
+                    profissional: profissional,
+                    servico: _servicoSelecionado ?? profissional.descricao,
+                    solicitacaoId: _solicitacaoId,
+                    onVerServicos: () =>
+                        Navigator.pushNamed(context, AppRoutes.meusServicos),
+                  )
+                else
+                  _FormularioSolicitacao(
+                    formKey: _formKey,
+                    profissional: profissional,
+                    servicoSelecionado: _servicoSelecionado,
+                    descricaoController: _descricaoController,
+                    bairroController: _bairroController,
+                    dataController: _dataController,
+                    horarioController: _horarioController,
+                    onServicoChanged: (servico) =>
+                        setState(() => _servicoSelecionado = servico),
+                    onSubmit: _enviarSolicitacao,
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _ResumoProfissional extends StatelessWidget {
+  const _ResumoProfissional({required this.profissional});
+
+  final Profissional profissional;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: AppColors.verdeClaro,
+              foregroundColor: AppColors.verde,
+              backgroundImage: profissional.fotoAsset == null
+                  ? null
+                  : AssetImage(profissional.fotoAsset!),
+              child: profissional.fotoAsset == null
+                  ? const Icon(Icons.person_rounded)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profissional.nome,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.texto,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _precoTexto(profissional.precoInicial),
+                    style: const TextStyle(
+                      color: AppColors.verde,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FormularioSolicitacao extends StatelessWidget {
+  const _FormularioSolicitacao({
+    required this.formKey,
+    required this.profissional,
+    required this.servicoSelecionado,
+    required this.descricaoController,
+    required this.bairroController,
+    required this.dataController,
+    required this.horarioController,
+    required this.onServicoChanged,
+    required this.onSubmit,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final Profissional profissional;
+  final String? servicoSelecionado;
+  final TextEditingController descricaoController;
+  final TextEditingController bairroController;
+  final TextEditingController dataController;
+  final TextEditingController horarioController;
+  final ValueChanged<String?> onServicoChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final servicos = profissional.servicos.isEmpty
+        ? [profissional.descricao]
+        : profissional.servicos;
+
+    return Form(
+      key: formKey,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x10153B31),
+              blurRadius: 16,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dados da solicitação',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.texto,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                key: const ValueKey('solicitar-servico'),
+                initialValue: servicoSelecionado,
+                decoration: const InputDecoration(
+                  labelText: 'Serviço desejado',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final servico in servicos)
+                    DropdownMenuItem(value: servico, child: Text(servico)),
+                ],
+                onChanged: onServicoChanged,
+                validator: validarCampoObrigatorio,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const ValueKey('solicitar-bairro'),
+                controller: bairroController,
+                decoration: const InputDecoration(
+                  labelText: 'Bairro do atendimento',
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.next,
+                validator: validarCampoObrigatorio,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      key: const ValueKey('solicitar-data'),
+                      controller: dataController,
+                      decoration: const InputDecoration(
+                        labelText: 'Data desejada',
+                        hintText: 'DD/MM/AAAA',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.datetime,
+                      textInputAction: TextInputAction.next,
+                      validator: validarCampoObrigatorio,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextFormField(
+                      key: const ValueKey('solicitar-horario'),
+                      controller: horarioController,
+                      decoration: const InputDecoration(
+                        labelText: 'Horário',
+                        hintText: 'HH:MM',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.datetime,
+                      textInputAction: TextInputAction.next,
+                      validator: validarCampoObrigatorio,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const ValueKey('solicitar-descricao'),
+                controller: descricaoController,
+                minLines: 4,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Descreva a necessidade',
+                  hintText: 'Ex.: instalar chuveiro no banheiro social',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+                validator: validarCampoObrigatorio,
+              ),
+              const SizedBox(height: 14),
+              const _AvisoSolicitacao(),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('solicitar-enviar'),
+                  onPressed: onSubmit,
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Enviar solicitação'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvisoSolicitacao extends StatelessWidget {
+  const _AvisoSolicitacao();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF6E2),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline_rounded, color: AppColors.verdeEscuro),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'O envio não confirma o agendamento. A solicitação começa '
+                'aguardando resposta e só será agendada após aceite válido '
+                'do profissional.',
+                style: TextStyle(color: AppColors.texto),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SolicitacaoEnviada extends StatelessWidget {
+  const _SolicitacaoEnviada({
+    required this.profissional,
+    required this.servico,
+    required this.solicitacaoId,
+    required this.onVerServicos,
+  });
+
+  final Profissional profissional;
+  final String servico;
+  final int? solicitacaoId;
+  final VoidCallback onVerServicos;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: AppColors.verdeClaro,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: AppColors.verde,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Solicitação enviada',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.texto,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Seu pedido de $servico para ${profissional.nome} foi preparado '
+              'com o status inicial aguardando_resposta.',
+              style: const TextStyle(color: AppColors.texto),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Status inicial: aguardando_resposta',
+              style: TextStyle(
+                color: AppColors.verdeEscuro,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Ainda não há agendamento confirmado. Aguarde o aceite do '
+              'profissional para que o atendimento passe a aceita_agendada.',
+              style: TextStyle(color: AppColors.textoSuave),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: solicitacaoId == null
+                    ? onVerServicos
+                    : () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.detalhesServico,
+                        arguments: solicitacaoId,
+                      ),
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: const Text('Ver detalhes'),
+              ),
+            ),
+            TextButton(
+              onPressed: onVerServicos,
+              child: const Text('Ir para meus serviços'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SolicitacaoIndisponivel extends StatelessWidget {
+  const _SolicitacaoIndisponivel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'Selecione um profissional antes de solicitar o serviço.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+String _precoTexto(double? preco) {
+  if (preco == null) return 'Preço inicial sob consulta';
+  return 'A partir de R\$ ${preco.toStringAsFixed(2).replaceAll('.', ',')}';
+}
+
+DateTime? _parseData(String valor) {
+  final partes = valor.trim().split('/');
+  if (partes.length != 3) return null;
+  final dia = int.tryParse(partes[0]);
+  final mes = int.tryParse(partes[1]);
+  final ano = int.tryParse(partes[2]);
+  if (dia == null || mes == null || ano == null) return null;
+  return DateTime(ano, mes, dia);
 }

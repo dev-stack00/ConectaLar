@@ -12,6 +12,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node dist/main.js",
+    "db:migration:run": "npm run build && typeorm migration:run -d dist/database/data-source.js",
+    "db:migration:revert": "npm run build && typeorm migration:revert -d dist/database/data-source.js",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
