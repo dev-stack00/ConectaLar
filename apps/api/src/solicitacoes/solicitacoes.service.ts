@@ -13,8 +13,10 @@ import { ProfissionalPerfilEntity } from '../database/entities/profissional-perf
 import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
 import { UsuarioEntity } from '../database/entities/usuario.entity.js';
 import { horarioDisponivel } from '../disponibilidade/disponibilidade.service.js';
+import { NotificacaoTipo } from '../domain/notificacao-tipo.js';
 import { SolicitacaoStatus } from '../domain/solicitacao-status.js';
 import { UsuarioTipo } from '../domain/usuario-tipo.js';
+import { NotificacoesService } from '../notificacoes/notificacoes.service.js';
 
 interface CriarSolicitacaoInput {
   readonly profissionalId: number;
@@ -38,6 +40,7 @@ export class SolicitacoesService {
     private readonly solicitacoes: Repository<SolicitacaoEntity>,
     @InjectRepository(UsuarioEntity)
     private readonly usuarios: Repository<UsuarioEntity>,
+    private readonly notificacoes: NotificacoesService,
   ) {}
 
   async criar(user: AuthenticatedUser, body: unknown) {
@@ -94,7 +97,16 @@ export class SolicitacoesService {
     });
 
     const saved = await this.solicitacoes.save(solicitacao);
-    return { solicitacao: solicitacaoResponse(await this.carregar(saved.id)) };
+    const reloaded = await this.carregar(saved.id);
+    await this.notificarSeguro({
+      usuarioId: profissional.usuarioId,
+      tipo: NotificacaoTipo.SolicitacaoCriada,
+      titulo: 'Nova solicitacao recebida',
+      mensagem: 'Voce recebeu uma nova solicitacao de atendimento.',
+      recursoTipo: 'solicitacao',
+      recursoId: saved.id,
+    });
+    return { solicitacao: solicitacaoResponse(reloaded) };
   }
 
   async minhas(user: AuthenticatedUser) {
@@ -129,21 +141,39 @@ export class SolicitacoesService {
   async aceitar(user: AuthenticatedUser, id: number) {
     const solicitacao = await this.carregar(id);
     assertProfissionalParticipante(user, solicitacao);
-    return this.transicionar(
+    const response = await this.transicionar(
       solicitacao,
       SolicitacaoStatus.AguardandoResposta,
       SolicitacaoStatus.AceitaAgendada,
     );
+    await this.notificarSeguro({
+      usuarioId: solicitacao.clienteId,
+      tipo: NotificacaoTipo.SolicitacaoAceita,
+      titulo: 'Solicitacao aceita',
+      mensagem: 'O profissional aceitou sua solicitacao.',
+      recursoTipo: 'solicitacao',
+      recursoId: solicitacao.id,
+    });
+    return response;
   }
 
   async recusar(user: AuthenticatedUser, id: number) {
     const solicitacao = await this.carregar(id);
     assertProfissionalParticipante(user, solicitacao);
-    return this.transicionar(
+    const response = await this.transicionar(
       solicitacao,
       SolicitacaoStatus.AguardandoResposta,
       SolicitacaoStatus.Recusada,
     );
+    await this.notificarSeguro({
+      usuarioId: solicitacao.clienteId,
+      tipo: NotificacaoTipo.SolicitacaoRecusada,
+      titulo: 'Solicitacao recusada',
+      mensagem: 'O profissional recusou sua solicitacao.',
+      recursoTipo: 'solicitacao',
+      recursoId: solicitacao.id,
+    });
+    return response;
   }
 
   async cancelar(user: AuthenticatedUser, id: number) {
@@ -160,17 +190,34 @@ export class SolicitacoesService {
 
     solicitacao.status = SolicitacaoStatus.Cancelada;
     const saved = await this.solicitacoes.save(solicitacao);
+    await this.notificarSeguro({
+      usuarioId: solicitacao.profissional.usuarioId,
+      tipo: NotificacaoTipo.SolicitacaoCancelada,
+      titulo: 'Solicitacao cancelada',
+      mensagem: 'O cliente cancelou uma solicitacao de atendimento.',
+      recursoTipo: 'solicitacao',
+      recursoId: solicitacao.id,
+    });
     return { solicitacao: solicitacaoResponse(await this.carregar(saved.id)) };
   }
 
   async concluir(user: AuthenticatedUser, id: number) {
     const solicitacao = await this.carregar(id);
     assertClienteParticipante(user, solicitacao);
-    return this.transicionar(
+    const response = await this.transicionar(
       solicitacao,
       SolicitacaoStatus.AceitaAgendada,
       SolicitacaoStatus.ConclusaoConfirmada,
     );
+    await this.notificarSeguro({
+      usuarioId: solicitacao.profissional.usuarioId,
+      tipo: NotificacaoTipo.SolicitacaoConcluida,
+      titulo: 'Servico concluido',
+      mensagem: 'O cliente confirmou a conclusao do atendimento.',
+      recursoTipo: 'solicitacao',
+      recursoId: solicitacao.id,
+    });
+    return response;
   }
 
   private async transicionar(
@@ -219,6 +266,14 @@ export class SolicitacoesService {
     }
     if (!horarioDisponivel(disponibilidades, dataServico, horarioServico)) {
       throw badRequest('HORARIO_INDISPONIVEL');
+    }
+  }
+
+  private async notificarSeguro(input: Parameters<NotificacoesService['criar']>[0]) {
+    try {
+      await this.notificacoes.criar(input);
+    } catch {
+      // Notificacoes nao podem alterar o estado do atendimento.
     }
   }
 }

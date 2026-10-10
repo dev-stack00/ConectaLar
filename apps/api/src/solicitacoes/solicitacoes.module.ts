@@ -6,12 +6,14 @@ import { ProfissionalDisponibilidadeEntity } from '../database/entities/profissi
 import { ProfissionalPerfilEntity } from '../database/entities/profissional-perfil.entity.js';
 import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
 import { UsuarioEntity } from '../database/entities/usuario.entity.js';
+import { NotificacoesModule } from '../notificacoes/notificacoes.module.js';
 import { SolicitacoesController } from './solicitacoes.controller.js';
 import { SolicitacoesService } from './solicitacoes.service.js';
 
 @Module({
   imports: [
     AuthModule,
+    NotificacoesModule,
     TypeOrmModule.forFeature([
       CategoriaEntity,
       ProfissionalDisponibilidadeEntity,

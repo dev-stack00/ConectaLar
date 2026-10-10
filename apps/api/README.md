@@ -32,7 +32,7 @@ The API currently has no external service, CORS, upload, payment, push notificat
 
 The approved persistence stack is `@nestjs/typeorm` 12.0.2, TypeORM 1.1.2, and `mysql2` 3.24.5. `src/database/data-source.ts` is the explicit TypeORM CLI data source. It requires `DB_HOST`, `DB_USER`, and `DB_NAME`; `DB_PORT` defaults to 3306 and `DB_PASSWORD` defaults to an empty string for local development. It reads process environment variables only and does not load `.env` files.
 
-Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF021 groundwork. Do not point a migration command at the legacy database.
+Schema synchronization and automatic migrations are disabled (`synchronize: false`, `migrationsRun: false`). The migrations create the `usuarios`, `profissionais`, `profissional_servicos`, `profissional_disponibilidades`, `categorias`, `solicitacoes`, `mensagens_atendimento`, `avaliacoes`, `notificacoes`, `cliente_perfis`, `cliente_enderecos`, and `favoritos_profissionais` tables needed for the current RF001/RF028 groundwork. Do not point a migration command at the legacy database.
 
 The `.env.example` values are placeholders, not usable credentials. Supply local test database values only in the current PowerShell session or an ignored local file after a local MySQL database has been set up.
 
@@ -123,3 +123,13 @@ Review routes:
 - `PATCH /avaliacoes/:id/moderacao` with `Authorization: Bearer <token>` for `administrador`
 
 Reviews can be created only after `conclusao_confirmada`. Each participant can review the opposite participant once per service request. New reviews start with moderation status `pendente`.
+
+Notification routes:
+
+- `GET /notificacoes/me` with `Authorization: Bearer <token>`
+- `GET /notificacoes/me?naoLidas=true` with `Authorization: Bearer <token>`
+- `GET /notificacoes/me/resumo` with `Authorization: Bearer <token>`
+- `PATCH /notificacoes/:id/lida` with `Authorization: Bearer <token>`
+- `PATCH /notificacoes/me/lidas` with `Authorization: Bearer <token>`
+
+Internal notifications are created for real backend events such as new requests, request acceptance/refusal/cancellation/conclusion, received messages, and received reviews. Notification registration is auxiliary and must not alter the service state if it fails.

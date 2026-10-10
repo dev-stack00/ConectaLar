@@ -10,6 +10,7 @@ import {
 } from './database/database.config.js';
 import { DisponibilidadeModule } from './disponibilidade/disponibilidade.module.js';
 import { MensagensModule } from './mensagens/mensagens.module.js';
+import { NotificacoesModule } from './notificacoes/notificacoes.module.js';
 import { HealthController } from './health/health.controller.js';
 import { ProfissionaisModule } from './profissionais/profissionais.module.js';
 import { SolicitacoesModule } from './solicitacoes/solicitacoes.module.js';
@@ -25,6 +26,7 @@ const runtimeImports = isAuthRuntimeConfigured()
       AvaliacoesModule,
       ClientesModule,
       DisponibilidadeModule,
+      NotificacoesModule,
     ]
   : [];
 

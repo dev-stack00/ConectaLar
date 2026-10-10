@@ -6,6 +6,7 @@ import { ClienteEnderecoEntity } from './entities/cliente-endereco.entity.js';
 import { ClientePerfilEntity } from './entities/cliente-perfil.entity.js';
 import { FavoritoProfissionalEntity } from './entities/favorito-profissional.entity.js';
 import { MensagemAtendimentoEntity } from './entities/mensagem-atendimento.entity.js';
+import { NotificacaoEntity } from './entities/notificacao.entity.js';
 import { ProfissionalDisponibilidadeEntity } from './entities/profissional-disponibilidade.entity.js';
 import { ProfissionalPerfilEntity } from './entities/profissional-perfil.entity.js';
 import { ProfissionalServicoEntity } from './entities/profissional-servico.entity.js';
@@ -84,6 +85,7 @@ export function databaseRuntimeOptions(): DataSourceOptions {
       ClienteEnderecoEntity,
       FavoritoProfissionalEntity,
       ProfissionalDisponibilidadeEntity,
+      NotificacaoEntity,
     ],
   };
 }

@@ -9,8 +9,10 @@ import { Repository } from 'typeorm';
 import { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { MensagemAtendimentoEntity } from '../database/entities/mensagem-atendimento.entity.js';
 import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
+import { NotificacaoTipo } from '../domain/notificacao-tipo.js';
 import { SolicitacaoStatus } from '../domain/solicitacao-status.js';
 import { UsuarioTipo } from '../domain/usuario-tipo.js';
+import { NotificacoesService } from '../notificacoes/notificacoes.service.js';
 
 @Injectable()
 export class MensagensService {
@@ -19,6 +21,7 @@ export class MensagensService {
     private readonly mensagens: Repository<MensagemAtendimentoEntity>,
     @InjectRepository(SolicitacaoEntity)
     private readonly solicitacoes: Repository<SolicitacaoEntity>,
+    private readonly notificacoes: NotificacoesService,
   ) {}
 
   async listar(user: AuthenticatedUser, solicitacaoId: number) {
@@ -63,6 +66,19 @@ export class MensagensService {
       throw new Error('Saved message could not be reloaded.');
     }
 
+    const destinatarioId =
+      user.id === solicitacao.clienteId
+        ? solicitacao.profissional.usuarioId
+        : solicitacao.clienteId;
+    await this.notificarSeguro({
+      usuarioId: destinatarioId,
+      tipo: NotificacaoTipo.MensagemRecebida,
+      titulo: 'Nova mensagem',
+      mensagem: 'Voce recebeu uma nova mensagem no atendimento.',
+      recursoTipo: 'solicitacao',
+      recursoId: solicitacaoId,
+    });
+
     return { mensagem: mensagemResponse(saved) };
   }
 
@@ -79,6 +95,14 @@ export class MensagensService {
     }
 
     return solicitacao;
+  }
+
+  private async notificarSeguro(input: Parameters<NotificacoesService['criar']>[0]) {
+    try {
+      await this.notificacoes.criar(input);
+    } catch {
+      // Falha de notificacao nao altera entrega da mensagem.
+    }
   }
 }
 

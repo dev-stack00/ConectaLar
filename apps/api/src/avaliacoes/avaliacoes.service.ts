@@ -11,8 +11,10 @@ import { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AvaliacaoEntity } from '../database/entities/avaliacao.entity.js';
 import { SolicitacaoEntity } from '../database/entities/solicitacao.entity.js';
 import { AvaliacaoModeracaoStatus } from '../domain/avaliacao-moderacao-status.js';
+import { NotificacaoTipo } from '../domain/notificacao-tipo.js';
 import { SolicitacaoStatus } from '../domain/solicitacao-status.js';
 import { UsuarioTipo } from '../domain/usuario-tipo.js';
+import { NotificacoesService } from '../notificacoes/notificacoes.service.js';
 
 @Injectable()
 export class AvaliacoesService {
@@ -21,6 +23,7 @@ export class AvaliacoesService {
     private readonly avaliacoes: Repository<AvaliacaoEntity>,
     @InjectRepository(SolicitacaoEntity)
     private readonly solicitacoes: Repository<SolicitacaoEntity>,
+    private readonly notificacoes: NotificacoesService,
   ) {}
 
   async listarDaSolicitacao(user: AuthenticatedUser, solicitacaoId: number) {
@@ -120,6 +123,14 @@ export class AvaliacoesService {
       if (reloaded === null) {
         throw new Error('Saved review could not be reloaded.');
       }
+      await this.notificarSeguro({
+        usuarioId: avaliadoId,
+        tipo: NotificacaoTipo.AvaliacaoRecebida,
+        titulo: 'Nova avaliacao recebida',
+        mensagem: 'Voce recebeu uma avaliacao de um atendimento concluido.',
+        recursoTipo: 'solicitacao',
+        recursoId: solicitacao.id,
+      });
       return { avaliacao: avaliacaoResponse(reloaded) };
     } catch (error) {
       if (isDuplicateError(error)) {
@@ -145,6 +156,14 @@ export class AvaliacoesService {
     }
 
     return solicitacao;
+  }
+
+  private async notificarSeguro(input: Parameters<NotificacoesService['criar']>[0]) {
+    try {
+      await this.notificacoes.criar(input);
+    } catch {
+      // Falha de notificacao nao altera registro de avaliacao.
+    }
   }
 }
 
