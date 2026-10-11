@@ -246,6 +246,29 @@ class _FormularioProfissional extends StatelessWidget {
               const SizedBox(height: 12),
               const _DocumentoAviso(),
               const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.disponibilidadeProfissional,
+                    ),
+                    icon: const Icon(Icons.schedule_outlined),
+                    label: const Text('Disponibilidade'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.documentosProfissional,
+                    ),
+                    icon: const Icon(Icons.verified_user_outlined),
+                    label: const Text('Documentos'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(

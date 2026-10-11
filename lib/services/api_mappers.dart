@@ -1,10 +1,14 @@
+import '../data/conectalar_mock_store.dart';
 import '../models/categoria.dart';
+import '../models/cliente_endereco.dart';
+import '../models/disponibilidade.dart';
+import '../models/documento_verificacao.dart';
 import '../models/home_content.dart';
 import '../models/mensagem.dart';
+import '../models/notificacao.dart';
 import '../models/profissional.dart';
 import '../models/solicitacao.dart';
 import '../models/usuario.dart';
-import '../data/conectalar_mock_store.dart';
 
 HomeContent homeContentFromApi({
   required Map<String, dynamic> categoriasResponse,
@@ -116,6 +120,61 @@ Usuario usuarioFromApi(Map<String, dynamic> json) {
     tipo: tipoUsuarioFromApi(stringValue(json['tipo'])),
     telefone: nullableString(json['telefone']),
     bairro: nullableString(json['bairroPrincipal'] ?? json['bairro']),
+  );
+}
+
+ClienteEndereco clienteEnderecoFromApi(Map<String, dynamic> json) {
+  return ClienteEndereco(
+    id: intValue(json['id']),
+    apelido: stringValue(json['apelido']),
+    cep: nullableString(json['cep']),
+    logradouro: stringValue(json['logradouro']),
+    numero: stringValue(json['numero']),
+    complemento: nullableString(json['complemento']),
+    bairro: stringValue(json['bairro']),
+    cidade: stringValue(json['cidade']),
+    uf: stringValue(json['uf']),
+    principal: boolValue(json['principal']),
+  );
+}
+
+Disponibilidade disponibilidadeFromApi(Map<String, dynamic> json) {
+  return Disponibilidade(
+    id: intValue(json['id']),
+    diaSemana: intValue(json['diaSemana']),
+    horaInicio: stringValue(json['horaInicio']),
+    horaFim: stringValue(json['horaFim']),
+    ativo: boolValue(json['ativo'], fallback: true),
+  );
+}
+
+Notificacao notificacaoFromApi(Map<String, dynamic> json) {
+  return Notificacao(
+    id: intValue(json['id']),
+    tipo: stringValue(json['tipo']),
+    titulo: stringValue(json['titulo']),
+    mensagem: stringValue(json['mensagem']),
+    recursoTipo: nullableString(json['recursoTipo']),
+    recursoId: json['recursoId'] == null ? null : intValue(json['recursoId']),
+    lida: boolValue(json['lida']),
+    lidaEm: json['lidaEm'] == null ? null : dateTimeValue(json['lidaEm']),
+    criadoEm: dateTimeValue(json['criadoEm']),
+  );
+}
+
+DocumentoVerificacao documentoVerificacaoFromApi(Map<String, dynamic> json) {
+  return DocumentoVerificacao(
+    id: intValue(json['id']),
+    tipoDocumento: stringValue(json['tipoDocumento']),
+    referenciaArquivo: stringValue(json['referenciaArquivo']),
+    nomeArquivo: nullableString(json['nomeArquivo']),
+    observacao: nullableString(json['observacao']),
+    status: stringValue(json['status']),
+    motivoRejeicao: nullableString(json['motivoRejeicao']),
+    analisadoEm: json['analisadoEm'] == null
+        ? null
+        : dateTimeValue(json['analisadoEm']),
+    criadoEm: dateTimeValue(json['criadoEm']),
   );
 }
 

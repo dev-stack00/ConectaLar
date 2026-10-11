@@ -1,0 +1,260 @@
+import 'package:flutter/material.dart';
+
+import '../../app/theme.dart';
+import '../../models/disponibilidade.dart';
+import '../../services/api_mappers.dart';
+import '../../services/service_registry.dart';
+import '../../utils/validators.dart';
+import '../../widgets/app_bar_custom.dart';
+
+class DisponibilidadePage extends StatefulWidget {
+  const DisponibilidadePage({super.key});
+
+  @override
+  State<DisponibilidadePage> createState() => _DisponibilidadePageState();
+}
+
+class _DisponibilidadePageState extends State<DisponibilidadePage> {
+  late Future<List<Disponibilidade>> _future;
+  final List<Disponibilidade> _itens = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _carregar();
+  }
+
+  Future<List<Disponibilidade>> _carregar() async {
+    if (!AppServices.instance.auth.autenticado) return const [];
+    final response = await AppServices.instance.profissionais
+        .minhaDisponibilidade();
+    final itens = listFromApi(
+      response['disponibilidades'],
+      disponibilidadeFromApi,
+    );
+    _itens
+      ..clear()
+      ..addAll(itens);
+    return itens;
+  }
+
+  Future<void> _salvar() async {
+    try {
+      await AppServices.instance.profissionais.salvarMinhaDisponibilidade(
+        _itens.map((item) => item.toApi()).toList(growable: false),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Disponibilidade salva.')));
+      setState(() => _future = _carregar());
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Confira os horários. Eles não podem se sobrepor.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _adicionar() async {
+    final item = await showModalBottomSheet<Disponibilidade>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _DisponibilidadeForm(),
+    );
+    if (item == null) return;
+    setState(() => _itens.add(item));
+  }
+
+  void _remover(int index) {
+    setState(() => _itens.removeAt(index));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const AppBarCustom(title: 'Disponibilidade'),
+      backgroundColor: AppColors.fundo,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _adicionar,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Horário'),
+      ),
+      body: FutureBuilder<List<Disponibilidade>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
+            children: [
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Cadastre os horários em que você pode receber solicitações. Pedidos fora desses horários são recusados pela API.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_itens.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text('Nenhum horário cadastrado.'),
+                  ),
+                )
+              else
+                for (var index = 0; index < _itens.length; index++) ...[
+                  _DisponibilidadeCard(
+                    item: _itens[index],
+                    onRemover: () => _remover(index),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _salvar,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Salvar disponibilidade'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DisponibilidadeCard extends StatelessWidget {
+  const _DisponibilidadeCard({required this.item, required this.onRemover});
+
+  final Disponibilidade item;
+  final VoidCallback onRemover;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: const Icon(
+          Icons.schedule_rounded,
+          color: AppColors.verdeEscuro,
+        ),
+        title: Text(_diaLabel(item.diaSemana)),
+        subtitle: Text('${item.horaInicio} às ${item.horaFim}'),
+        trailing: IconButton(
+          tooltip: 'Remover',
+          onPressed: onRemover,
+          icon: const Icon(Icons.delete_outline),
+        ),
+      ),
+    );
+  }
+}
+
+class _DisponibilidadeForm extends StatefulWidget {
+  const _DisponibilidadeForm();
+
+  @override
+  State<_DisponibilidadeForm> createState() => _DisponibilidadeFormState();
+}
+
+class _DisponibilidadeFormState extends State<_DisponibilidadeForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _inicio = TextEditingController(text: '09:00');
+  final _fim = TextEditingController(text: '18:00');
+  int _dia = 1;
+
+  @override
+  void dispose() {
+    _inicio.dispose();
+    _fim.dispose();
+    super.dispose();
+  }
+
+  void _salvar() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      Disponibilidade(
+        id: 0,
+        diaSemana: _dia,
+        horaInicio: _inicio.text.trim(),
+        horaFim: _fim.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: _dia,
+                decoration: const InputDecoration(labelText: 'Dia da semana'),
+                items: [
+                  for (var dia = 0; dia <= 6; dia++)
+                    DropdownMenuItem(value: dia, child: Text(_diaLabel(dia))),
+                ],
+                onChanged: (value) => setState(() => _dia = value ?? 1),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _inicio,
+                      decoration: const InputDecoration(labelText: 'Início'),
+                      validator: validarCampoObrigatorio,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _fim,
+                      decoration: const InputDecoration(labelText: 'Fim'),
+                      validator: validarCampoObrigatorio,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _salvar,
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Adicionar horário'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _diaLabel(int dia) {
+  return switch (dia) {
+    0 => 'Domingo',
+    1 => 'Segunda-feira',
+    2 => 'Terça-feira',
+    3 => 'Quarta-feira',
+    4 => 'Quinta-feira',
+    5 => 'Sexta-feira',
+    6 => 'Sábado',
+    _ => 'Dia inválido',
+  };
+}
