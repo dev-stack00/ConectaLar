@@ -72,6 +72,25 @@ class _DocumentosVerificacaoPageState extends State<DocumentosVerificacaoPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: 10),
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Documentos que você pode enviar',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      SizedBox(height: 8),
+                      Text('• Documento de identificação'),
+                      Text('• Comprovante de endereço'),
+                      Text('• Certificados profissionais (opcionais)'),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               if (documentos.isEmpty)
                 const Card(
@@ -115,7 +134,7 @@ class _DocumentoCard extends StatelessWidget {
         subtitle: Text(
           [
             documento.nomeArquivo ?? documento.referenciaArquivo,
-            'Status: ${documento.status}',
+            'Status: ${_statusDocumento(documento.status)}',
             if (documento.motivoRejeicao != null)
               'Motivo: ${documento.motivoRejeicao}',
           ].join('\n'),
@@ -124,6 +143,13 @@ class _DocumentoCard extends StatelessWidget {
     );
   }
 }
+
+String _statusDocumento(String status) => switch (status) {
+  'pendente' => 'Em análise',
+  'aprovado' => 'Aprovado',
+  'rejeitado' => 'Rejeitado',
+  _ => 'Enviado',
+};
 
 class _DocumentoForm extends StatefulWidget {
   const _DocumentoForm();
@@ -134,7 +160,7 @@ class _DocumentoForm extends StatefulWidget {
 
 class _DocumentoFormState extends State<_DocumentoForm> {
   final _formKey = GlobalKey<FormState>();
-  final _tipo = TextEditingController(text: 'documento_identidade');
+  String _tipo = 'documento_identidade';
   final _referencia = TextEditingController();
   final _nomeArquivo = TextEditingController();
   final _observacao = TextEditingController();
@@ -142,7 +168,6 @@ class _DocumentoFormState extends State<_DocumentoForm> {
 
   @override
   void dispose() {
-    _tipo.dispose();
     _referencia.dispose();
     _nomeArquivo.dispose();
     _observacao.dispose();
@@ -154,7 +179,7 @@ class _DocumentoFormState extends State<_DocumentoForm> {
     setState(() => _enviando = true);
     try {
       await AppServices.instance.verificacao.enviarDocumento(
-        tipoDocumento: _tipo.text.trim(),
+        tipoDocumento: _tipo,
         referenciaArquivo: _referencia.text.trim(),
         nomeArquivo: _nomeArquivo.text.trim().isEmpty
             ? null
@@ -195,12 +220,26 @@ class _DocumentoFormState extends State<_DocumentoForm> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 14),
-              TextFormField(
-                controller: _tipo,
+              DropdownButtonFormField<String>(
+                initialValue: _tipo,
                 decoration: const InputDecoration(
                   labelText: 'Tipo de documento',
                 ),
-                validator: validarCampoObrigatorio,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'documento_identidade',
+                    child: Text('Documento de identificação'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'comprovante_endereco',
+                    child: Text('Comprovante de endereço'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'certificado_opcional',
+                    child: Text('Certificado profissional (opcional)'),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _tipo = value ?? _tipo),
               ),
               const SizedBox(height: 10),
               TextFormField(

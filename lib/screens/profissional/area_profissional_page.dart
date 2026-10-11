@@ -217,7 +217,7 @@ class _AreaProfissionalPageState extends State<AreaProfissionalPage> {
                       children: [
                         for (final f in [
                           'Todas',
-                          'Novas',
+                          'Novas / aguardando',
                           'Agendadas',
                           'Histórico',
                         ]) ...[
@@ -298,7 +298,7 @@ class _AreaProfissionalPageState extends State<AreaProfissionalPage> {
 
   List<Map<String, dynamic>> _filtrar(List<Map<String, dynamic>> pedidos) =>
       switch (_filtro) {
-        'Novas' =>
+        'Novas / aguardando' =>
           pedidos.where((p) => p['status'] == 'aguardando_resposta').toList(),
         'Agendadas' =>
           pedidos.where((p) => p['status'] == 'aceita_agendada').toList(),
@@ -392,10 +392,10 @@ class _DetalheSolicitacaoProfissionalPageState
                     _BadgeCard(
                       icon: Icons.lock_outline,
                       title: aceito
-                          ? 'Endereço liberado conforme autorização da API'
+                          ? 'Aceite confirmado'
                           : 'Endereço completo protegido',
                       text: aceito
-                          ? 'A API autoriza o acesso do profissional participante após o aceite válido.'
+                          ? 'A API atual ainda não fornece o endereço completo nesta tela. Consulte apenas os dados retornados para esta solicitação.'
                           : 'O endereço completo só fica disponível após o aceite válido registrado pela API.',
                     ),
                     const SizedBox(height: 14),
