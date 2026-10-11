@@ -158,7 +158,7 @@ class _AdminPageState extends State<AdminPage> {
       FutureBuilder<List<Map<String, dynamic>>>(
         future: _carregar(AdminModulo.documentos),
         builder: (context, s) => _Indicador(
-          label: 'Profissionais/documentos pendentes',
+          label: 'Documentos em análise',
           value: '${s.data?.length ?? '—'}',
           icon: Icons.verified_user_outlined,
         ),
