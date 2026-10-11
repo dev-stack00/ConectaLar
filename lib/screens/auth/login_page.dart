@@ -38,7 +38,13 @@ class _LoginPageState extends State<LoginPage> {
         senha: _senhaController.text,
       );
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
+      final tipo = AppServices.instance.auth.usuarioAtual?['tipo'];
+      final rota = switch (tipo) {
+        'profissional' || 'empresa' => AppRoutes.areaProfissional,
+        'administrador' => AppRoutes.admin,
+        _ => AppRoutes.home,
+      };
+      Navigator.pushNamedAndRemoveUntil(context, rota, (_) => false);
     } on ApiException catch (error) {
       if (!mounted) return;
       _mostrarErro(error.message);
