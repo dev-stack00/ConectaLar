@@ -308,9 +308,9 @@ class _HomeHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
-        final imageWidth = (constraints.maxWidth * 0.68).clamp(230.0, 280.0);
-        final imageHeight = imageWidth * 2 / 3;
+        final compact = constraints.maxWidth < 380;
+        final baseImageSize = (constraints.maxWidth * 0.43).clamp(144.0, 170.0);
+        final imageSize = baseImageSize * (compact ? 1.06 : 1.1);
         return SizedBox(
           height: 306,
           child: Stack(
@@ -328,26 +328,30 @@ class _HomeHero extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: -46,
-                bottom: 48,
-                child: Container(
-                  width: 230,
-                  height: 205,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFD8F0E1),
-                    shape: BoxShape.circle,
+                top: 128,
+                right: 8,
+                child: SizedBox.square(
+                  dimension: imageSize,
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD8F0E1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: ClipOval(
+                      child: Transform.scale(
+                        scale: 1.08,
+                        alignment: Alignment.bottomRight,
+                        child: Image.asset(
+                          'assets/images/home/hero_house_cutout.png',
+                          width: imageSize,
+                          height: imageSize,
+                          fit: BoxFit.cover,
+                          alignment: const Alignment(0.65, 0),
+                          semanticLabel: 'Casa com jardim',
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Positioned(
-                right: compact ? -10 : -18,
-                bottom: 26,
-                child: Image.asset(
-                  'assets/images/home/hero_house_cutout.png',
-                  width: imageWidth,
-                  height: imageHeight,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomRight,
                 ),
               ),
               Positioned(
@@ -359,8 +363,8 @@ class _HomeHero extends StatelessWidget {
               Positioned(
                 top: 86,
                 left: 20,
-                right: compact ? 106 : 126,
-                child: const _Greeting(),
+                right: imageSize + 18,
+                child: _Greeting(compact: compact),
               ),
               Positioned(
                 left: 20,
@@ -474,7 +478,9 @@ class _BrandHeader extends StatelessWidget {
 }
 
 class _Greeting extends StatelessWidget {
-  const _Greeting();
+  const _Greeting({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -494,7 +500,7 @@ class _Greeting extends StatelessWidget {
           'Que serviço você precisa?',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: AppColors.texto,
-            fontSize: 24,
+            fontSize: compact ? 21 : 23,
             height: 1.05,
             fontWeight: FontWeight.w800,
           ),
