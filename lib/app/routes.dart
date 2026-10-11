@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/auth/cadastro_page.dart';
 import '../screens/auth/login_page.dart';
+import '../screens/admin/admin_pages.dart';
 import '../screens/busca/busca_page.dart';
 import '../screens/busca/resultado_page.dart';
 import '../screens/chat/chat_page.dart';
@@ -15,6 +16,7 @@ import '../screens/profissional/cadastro_profissional_page.dart';
 import '../screens/profissional/disponibilidade_page.dart';
 import '../screens/profissional/documentos_verificacao_page.dart';
 import '../screens/profissional/perfil_profissional_page.dart';
+import '../screens/profissional/area_profissional_page.dart';
 import '../screens/servicos/detalhes_servico_page.dart';
 import '../screens/servicos/meus_servicos_page.dart';
 import '../screens/servicos/solicitar_servico_page.dart';
@@ -38,6 +40,17 @@ abstract final class AppRoutes {
   static const notificacoes = '/notificacoes';
   static const disponibilidadeProfissional = '/profissionais/disponibilidade';
   static const documentosProfissional = '/profissionais/documentos';
+  static const areaProfissional = '/profissionais/inicio';
+  static const detalhesSolicitacaoProfissional =
+      '/profissionais/solicitacoes/detalhes';
+  static const servicosProfissional = '/profissionais/servicos';
+  static const perfilProfissionalPrivado = '/profissionais/meu-perfil';
+  static const admin = '/admin';
+  static const adminUsuarios = '/admin/usuarios';
+  static const adminDocumentos = '/admin/documentos';
+  static const adminDenuncias = '/admin/denuncias';
+  static const adminAvaliacoes = '/admin/avaliacoes';
+  static const adminCategorias = '/admin/categorias';
 
   static final Map<String, WidgetBuilder> routes = {
     home: (_) => const HomePage(),
@@ -58,5 +71,16 @@ abstract final class AppRoutes {
     notificacoes: (_) => const NotificacoesPage(),
     disponibilidadeProfissional: (_) => const DisponibilidadePage(),
     documentosProfissional: (_) => const DocumentosVerificacaoPage(),
+    areaProfissional: (_) => const AreaProfissionalPage(),
+    detalhesSolicitacaoProfissional: (_) =>
+        const DetalheSolicitacaoProfissionalPage(),
+    servicosProfissional: (_) => const ServicosProfissionalPage(),
+    perfilProfissionalPrivado: (_) => const PerfilProfissionalPrivadoPage(),
+    admin: (_) => const AdminPage(),
+    adminUsuarios: (_) => const AdminPage(modulo: AdminModulo.usuarios),
+    adminDocumentos: (_) => const AdminPage(modulo: AdminModulo.documentos),
+    adminDenuncias: (_) => const AdminPage(modulo: AdminModulo.denuncias),
+    adminAvaliacoes: (_) => const AdminPage(modulo: AdminModulo.avaliacoes),
+    adminCategorias: (_) => const AdminPage(modulo: AdminModulo.categorias),
   };
 }

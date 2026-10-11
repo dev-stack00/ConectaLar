@@ -66,6 +66,13 @@ A escolha TypeORM + `mysql2` já foi aprovada e registrada em `docs/decisoes.md`
 
 ## Restrições de operação
 
+### Limites dos módulos Flutter profissionais e administrativos
+
+- As telas profissionais P01–P07 e os módulos administrativos de usuários, documentos, denúncias, avaliações e categorias usam os endpoints disponíveis em `apps/api`. O selo continua condicionado à aprovação administrativa; o cliente não realiza essa aprovação.
+- A API atualiza as ofertas profissionais junto com o perfil (`PUT profissionais/me`) e recria os itens enviados como ativos. Não há endpoint para desativar uma oferta individual nem para alterar os campos públicos de perfil separadamente. A tela permite incluir/editar ofertas e apresenta-as como ativas; a desativação individual depende de uma decisão de contrato e endpoint específico.
+- A API de categorias administra apenas nome e status. Cadastro de ícone/descrição, gerenciamento independente de serviços do catálogo e relatório/paginação administrativa não estão disponíveis; a interface não simula essas operações.
+- O formulário atual de documentos recebe referência de arquivo, mas o projeto ainda não tem fluxo de upload/armazenamento binário. A referência não deve ser tratada como arquivo validado até existir esse fluxo e os controles correspondentes.
+
 - O orçamento informado é de R$ 400 no total; desenvolvimento deve começar localmente e sem custos recorrentes assumidos.
 - A equipe não dispõe de Mac. Compilação e assinatura iOS dependem de ambiente macOS a escolher e aprovar antes da homologação.
 - Acesso a iPhone de teste, orçamento recorrente e contas das lojas ainda precisam ser confirmados antes de publicação.

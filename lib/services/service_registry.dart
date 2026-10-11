@@ -1,6 +1,7 @@
 import '../models/home_content.dart';
 import 'api_mappers.dart';
 import 'api_service.dart';
+import 'admin_service.dart';
 import 'auth_service.dart';
 import 'avaliacao_service.dart';
 import 'categoria_service.dart';
@@ -19,6 +20,7 @@ class AppServices {
 
   AppServices._shared() : api = ApiService() {
     auth = AuthService(api);
+    admin = AdminService(api);
     avaliacoes = AvaliacaoService(api);
     categorias = CategoriaService(api);
     clientes = ClienteService(api);
@@ -34,6 +36,7 @@ class AppServices {
 
   final ApiService api;
   late AuthService auth;
+  late AdminService admin;
   late AvaliacaoService avaliacoes;
   late CategoriaService categorias;
   late ClienteService clientes;
